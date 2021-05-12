@@ -1,0 +1,69 @@
+#+title:     Jenkins Job runner
+#+author:    Logan Barnett-Hoy
+#+email:     logustus@gmail.com
+#+date:      <2021-05-11 Tue>
+#+language:  en
+#+file_tags:
+#+tags:
+
+=jj= is a command line Jenkins job runner. It requires a lightweight
+configuration.
+
+* usage
+
+** running with configuration
+
+The [[https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap12.html][utility structure]] is one of:
+
+=jj [<server>] <job name>=
+
+Omitting =<server>= will require =jj= to find the =defaultServer= in
+=~/.config/jj/config.toml=. The value of =defaultServer= must correspond to a
+TOML section, which represents the server to be contacted.
+
+** running without configuration
+
+Coming soon!
+
+When running without a configuration file, the notion of a =default_server=
+isn't as strong.
+
+** jobs with parameters
+
+Coming soon!
+
+
+* contributing
+** principles
+*** configuration files for convenience, not necessity
+
+The configuration file is to optimize common, manual usage of the program. The
+configuration file should not be required to perform execution, so long as all
+of the arguments necessary are provided.
+
+*** documentation first
+
+Documentation comes first. A feature is not done (and arguably not started)
+until there is documentation of both its intent and usage.
+
+*** integration tests instead of unit tests
+
+Unit tests inevitably require mocks, which are lies. In all practicality we must
+eventually mock _something_, but the internals of the application are not
+necessary to mock. Our tests all share the entry point of the program itself,
+and do not exercise some tiny portion of the program with the hopes that the
+mocks replicate the correct behavior.
+
+*** 100% test coverage
+
+If functionality cannot be covered with a test, then the functionality is doomed
+to regress from future changes. All functionality must have 100% test coverage.
+
+*** It's okay to fall short
+
+We will attempt to make contributions welcome, even if they do not follow the
+above principles. That being said, expect adjustments or requests to the
+contributions to bring it into alignment with the above principles.
+
+* design
+** operational flow
