@@ -1,3 +1,6 @@
+use futures::TryFutureExt;
+use futures::FutureExt;
+
 mod cli;
 mod config;
 mod jenkins;
@@ -14,6 +17,11 @@ async fn main() -> Result<(), error::AppError> {
     // The above documentation states that the queue item should be around for 5
     // minutes. We can use that to query to see which build it has produced, and
     // then use that to poll/watch the build log.
-     jenkins::build_enqueue(config).await?;
-    Ok(())
+    jenkins::build_enqueue(&config)
+        .and_then(|url| jenkins::build_summarize(&config, url))
+        .await
+        .and_then(|s| {
+            println!("Done! {}", s);
+            Ok(())
+        })
 }
