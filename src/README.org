@@ -25,9 +25,14 @@ TOML section, which represents the server to be contacted.
 default_server = "foo"
 
 [foo]
-host_url = "https://jenkins.foo"
+host_url = "http://jenkins.foo:8080"
 username = "jeeves"
 token_eval = "printf '%s' 'totally secure token'"
+
+[secure]
+host_url = "https://jenkins.foo"
+username = "jeeves"
+token_eval = "pass jenkins-foo-api-token"
 #+end_example
 
 
