@@ -19,11 +19,52 @@
  * documentation absent.
  */
 use crate::cli;
+use crate::error;
 
-fn build_enqueue(config: cli::ConfigValid) {
-    reqwest::post(format!("{}/job/{}", config.server.host_url, config.job))
-        .basic_auth(config.server.username, config.server.token)
+// Responses are consumed the moment you read in something like its body. If
+// easily toggleable debugging is desired, reqwest::Response is not the way to
+// go - you will enter borrow-checker hell, from which there is no escape or
+// respite. This is proven science.
+//
+pub struct BufferedResponse {
+    headers: reqwest::header::HeaderMap,
+    status: reqwest::StatusCode,
+    text: String,
+}
+
+async fn to_buffered_response(
+    r: reqwest::Response,
+) -> Result<BufferedResponse, error::AppError> {
+    Ok(BufferedResponse {
+        headers: r.headers().clone(),
+        status: r.status(),
+        text: r.text().await.map_err(error::AppError::JenkinsEnqueueError)?,
+    })
+}
+
+pub async fn build_enqueue(
+    config: cli::CliValid,
+) -> Result<BufferedResponse, error::AppError> {
+    let url = format!("{}/job/{}/build", config.server.host_url, config.job);
+    println!("Enqueueing at '{}'", url);
+    // println!("Using token {}", config.server.token);
+    let response = reqwest::Client::new()
+        .post(url)
+        .basic_auth(config.server.username, Some(config.server.token))
         .send()
+        .await
+        .map_err(error::AppError::JenkinsEnqueueError)?;
+    let buffered_response = to_buffered_response(response).await?;
+    println!(
+        "result? {}\n{}\n{}",
+        buffered_response.status,
+        buffered_response.headers[reqwest::header::LOCATION]
+            .to_str()
+            .map_err(error::AppError::JenkinsHeaderError)?
+            .to_string(),
+        buffered_response.text,
+    );
+    Ok(buffered_response)
 }
 
 fn build_summarize() {

@@ -1,3 +1,4 @@
+use crate::error;
 use serde::{Deserialize, Serialize};
 use serde;
 use serdeconv;
@@ -5,7 +6,6 @@ use std::collections::{HashMap};
 use std::env;
 use std::fs;
 use std::process::Command;
-// use futures::io;
 
 #[derive(Serialize, Deserialize)]
 pub struct ConfigFromFile {
@@ -42,46 +42,36 @@ pub struct ConfigServerParsed {
     pub token: String,
 }
 
-#[derive(Debug)]
-pub enum ConfigLoadError {
-    IoError(std::io::Error),
-    DeserializationError(serdeconv::Error),
-    TokenEvalCommandError(std::io::Error),
-    TokenEvalBufferReadError(std::string::FromUtf8Error),
-    ValidationError,
-    VarError(std::env::VarError),
-}
-
 fn path(paths: &[&str]) -> std::path::PathBuf
 {
     paths.iter().collect()
 }
 
-fn config_dir_ensure() -> Result<(), ConfigLoadError> {
+fn config_dir_ensure() -> Result<(), error::AppError> {
     fs::create_dir_all(
         path(&[
-            &env::var("HOME").map_err(ConfigLoadError::VarError)?,
+            &env::var("HOME").map_err(error::AppError::ConfigVarError)?,
             &".config".to_string(),
             &"jj".to_string(),
         ])
-    ).map_err(ConfigLoadError::IoError)
+    ).map_err(error::AppError::ConfigIoError)
 }
 
-fn config_from_file() -> Result<ConfigFromFile, ConfigLoadError> {
+fn config_from_file() -> Result<ConfigFromFile, error::AppError> {
     serdeconv::from_toml_file(
         path(&[
-            &env::var("HOME").map_err(ConfigLoadError::VarError)?,
+            &env::var("HOME").map_err(error::AppError::ConfigVarError)?,
             &".config".to_string(),
             &"jj".to_string(),
             &"config.toml".to_string(),
         ])
-    ).map_err(ConfigLoadError::DeserializationError)
+    ).map_err(error::AppError::ConfigDeserializationError)
 }
 
 // defaultServer should exist among servers, or something is wrong.
 fn config_validate(
     config_from_file: ConfigFromFile,
-) -> Result<ConfigParsed, ConfigLoadError> {
+) -> Result<ConfigParsed, error::AppError> {
     Ok(ConfigParsed {
         default_server: config_from_file.default_server,
         servers: config_from_file.servers.into_iter().map(|(k, v)| {
@@ -93,7 +83,7 @@ fn config_validate(
             }))
         }).collect::<Result<
                 HashMap<String, ConfigServerParsed>,
-                ConfigLoadError,
+                error::AppError,
             >>()?,
     })
 }
@@ -102,21 +92,22 @@ fn config_validate(
 // haven't had much luck getting it working. I'm trying to use it in the context
 // of function composition. For now I am shelving the endeavor and will return
 // after some more advice, wisdom, or pairing muscle.
-pub fn config_load() -> Result<ConfigParsed, ConfigLoadError> {
+pub fn config_load() -> Result<ConfigParsed, error::AppError> {
     config_dir_ensure()
         .and_then(|_| config_from_file())
         .and_then(config_validate)
 }
 
 // TODO: Maybe use an alias here for the token.
-fn token_eval(token_code: String) -> Result<String, ConfigLoadError> {
+fn token_eval(token_code: String) -> Result<String, error::AppError> {
+    // Beware that sh could be a shell you don't exepct in your environment..
     Command::new("sh")
         .args(&["-c", &token_code])
         .output()
-        .map_err(ConfigLoadError::TokenEvalCommandError)
+        .map_err(error::AppError::ConfigTokenEvalCommandError)
         .and_then(|x| {
             String::from_utf8(x.stdout)
-                  .map_err(ConfigLoadError::TokenEvalBufferReadError)
+                  .map_err(error::AppError::ConfigTokenEvalBufferReadError)
         })
         .map(|x| x.to_string())
 }

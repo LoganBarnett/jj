@@ -15,11 +15,21 @@ configuration.
 
 The [[https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap12.html][utility structure]] is one of:
 
-=jj [<server>] <job name>=
+=jj <job name> [-s/--server <server-name>]=
 
-Omitting =<server>= will require =jj= to find the =defaultServer= in
+Omitting =[--server]= will require =jj= to find the =defaultServer= in
 =~/.config/jj/config.toml=. The value of =defaultServer= must correspond to a
 TOML section, which represents the server to be contacted.
+
+#+begin_example toml
+default_server = "foo"
+
+[foo]
+host_url = "https://jenkins.foo"
+username = "jeeves"
+token_eval = "printf '%s' 'totally secure token'"
+#+end_example
+
 
 ** running without configuration
 

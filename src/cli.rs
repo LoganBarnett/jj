@@ -1,21 +1,18 @@
-use structopt::StructOpt;
+use clap::Clap;
 use crate::config;
+use crate::error;
 
-#[derive(StructOpt)]
-#[structopt(
+#[derive(Clap)]
+#[clap(
     name = "jj",
     about = "Run Jenkins jobs from the command line.",
 )]
+#[clap(setting = clap::AppSettings::ColoredHelp)]
 // Without a structopt declaration, the argument is positional.
 pub struct Cli {
-    #[structopt(skip = "default")]
-    pub server: String,
     pub job: String,
-}
-
-#[derive(Debug)]
-pub enum CliError {
-    ConfigServerMissingError(String),
+    #[clap(short, long, default_value = "default")]
+    pub server: String,
 }
 
 pub struct CliValid {
@@ -23,8 +20,10 @@ pub struct CliValid {
     pub server: config::ConfigServerParsed,
 }
 
-pub fn cli_validate(config: config::ConfigParsed) -> Result<CliValid, CliError> {
-    let cli = Cli::from_args();
+pub fn cli_validate(
+    config: config::ConfigParsed,
+) -> Result<CliValid, error::AppError> {
+    let cli = Cli::parse();
     let server_name = if cli.server == "default" {
         config.default_server
     } else {
@@ -35,8 +34,11 @@ pub fn cli_validate(config: config::ConfigParsed) -> Result<CliValid, CliError> 
             job: cli.job,
             server: server.clone(),
         }),
-        None => Err(CliError::ConfigServerMissingError(
-            format!("Could not find server '{}' in configuration.", server_name),
+        None => Err(error::AppError::CliConfigServerMissingError(
+            format!(
+                "Could not find server '{}' in configuration.",
+                server_name,
+            ),
         )),
     }
 }
