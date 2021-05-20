@@ -1,5 +1,5 @@
+// Needed to make future magic work, I guess.
 use futures::TryFutureExt;
-use futures::FutureExt;
 
 mod cli;
 mod config;
@@ -18,10 +18,15 @@ async fn main() -> Result<(), error::AppError> {
     // minutes. We can use that to query to see which build it has produced, and
     // then use that to poll/watch the build log.
     jenkins::build_enqueue(&config)
-        .and_then(|url| jenkins::build_summarize(&config, url))
+        .and_then(|url| jenkins::build_queue_item_poll(&config, url))
+        .and_then(|url| jenkins::build_log_stream(&config, url))
         .await
-        .and_then(|s| {
-            println!("Done! {}", s);
+        .and_then(|()| {
+            println!("Done!");
             Ok(())
         })
+        // .and_then(|s| {
+        //     println!("Done! {:?}", s);
+        //     Ok(())
+        // })
 }

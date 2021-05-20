@@ -1,0 +1,36 @@
+{
+  "_class": "hudson.model.Queue$LeftItem",
+  "actions": [
+    {
+      "_class": "hudson.model.CauseAction",
+      "causes": [
+        {
+          "_class": "hudson.model.Cause$UserIdCause",
+          "shortDescription": "Started by user Logan Barnett",
+          "userId": "logan.barnett",
+          "userName": "Logan Barnett"
+        }
+      ]
+    }
+  ],
+  "blocked": false,
+  "buildable": false,
+  "id": 595972,
+  "inQueueSince": 1621454799927,
+  "params": "",
+  "stuck": false,
+  "task": {
+    "_class": "hudson.model.FreeStyleProject",
+    "name": "env",
+    "url": "https://jenkins.foo/job/my-job/",
+    "color": "blue"
+  },
+  "url": "queue/item/595972/",
+  "why": null,
+  "cancelled": false,
+  "executable": {
+    "_class": "hudson.model.FreeStyleBuild",
+    "number": 16,
+    "url": "https://jenkins.foo/job/my-job/16/"
+  }
+}

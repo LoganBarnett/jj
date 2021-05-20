@@ -8,6 +8,13 @@ pub enum AppError {
     ConfigTokenEvalBufferReadError(std::string::FromUtf8Error),
     ConfigValidationError,
     ConfigVarError(std::env::VarError),
+    JenkinsBuildStreamError(reqwest::Error),
+    JenkinsBuildResponseReadError(reqwest::Error),
+    JenkinsBuildOutputError(std::io::Error),
+    JenkinsDeserializeError(serde_json::Error),
     JenkinsEnqueueError(reqwest::Error),
+    JenkinsEnqueueDeserializeError(String),
+    JenkinsEnqueueSecondsParseError(std::num::ParseIntError),
+    JenkinsEnqueueWaitError(String),
     JenkinsHeaderError(reqwest::header::ToStrError),
 }
