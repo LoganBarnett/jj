@@ -22,6 +22,8 @@ use either::{Either, Left, Right};
 // Give me all of the futures magic, reasonability be damned.
 use futures::FutureExt;
 use futures::StreamExt;
+// Gives us macros such as debug! and error! See logging.rs for setup.
+use log::*;
 use serde::{Deserialize, Serialize};
 // Used for writing to our stdout via a stream.
 use std::io::Write;
@@ -115,8 +117,8 @@ pub async fn build_enqueue<'a>(
     config: &'a cli::CliValid,
 ) -> Result<String, error::AppError> {
     let url = format!("{}/job/{}/build", config.server.host_url, config.job);
-    println!("Enqueueing at '{}'", url);
-    // println!("Using token {}", config.server.token);
+    debug!("Enqueueing at '{}'", url);
+    trace!("Using token {}", config.server.token);
     let response = jenkins_request(
         &config,
         reqwest::Method::POST,
@@ -130,7 +132,7 @@ pub async fn build_enqueue<'a>(
             .to_str()
             .map_err(error::AppError::JenkinsHeaderError)?
             .to_string();
-    println!(
+    debug!(
         "result? {}\n{}\n{}",
         buffered_response.status,
         location,
@@ -255,7 +257,7 @@ pub async fn build_queue_item_get<'a>(
         .await
         .map_err(error::AppError::JenkinsEnqueueError)?;
     let buffered_response = to_buffered_response(response).await?;
-    println!(
+    debug!(
         "result? {}\n{}\n{}",
         buffered_response.status,
         headers_to_string(buffered_response.headers)?,

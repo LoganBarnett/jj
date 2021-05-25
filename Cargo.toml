@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 clap = "3.0.0-beta.2"
+clap-verbosity-flag = "0.3.1"
 # I'm surprised this isn't in the core.
 either = "1.6.1"
 # Use futures to block on async operations.
@@ -15,10 +16,12 @@ futures = "0.3.15"
 # Included just so we can reference the Error type from Command's Output.
 futures-io = "0.3.15"
 lazy_static = "1.4.0"
+log = "0.4.14"
 reqwest = { version = "0.11.3", features = ["blocking", "json", "stream" ] }
 regex = "1.5.4"
 serde = { version = "1.0.125", features = ["derive"] }
 serde_json = "1.0.59"
 serdeconv = "0.2.1"
+stderrlog = "0.5.1"
 # Depend upon tokio so we can use block_on I guess.
 tokio = { version = "1.5.0", features = ["full"] }

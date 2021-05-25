@@ -4,6 +4,7 @@ use futures::TryFutureExt;
 mod cli;
 mod config;
 mod jenkins;
+mod logging;
 mod error;
 
 #[tokio::main]

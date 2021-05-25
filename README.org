@@ -15,11 +15,15 @@ configuration.
 
 The [[https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap12.html][utility structure]] is one of:
 
-=jj <job name> [-s/--server <server-name>]=
+=jj <job name> [-s/--server <server-name>] [-v...]=
 
 Omitting =[--server]= will require =jj= to find the =defaultServer= in
 =~/.config/jj/config.toml=. The value of =defaultServer= must correspond to a
 TOML section, which represents the server to be contacted.
+
+Much like =ssh=, use =-v= to increase verbosity in the logging, with subsequent
+=v='s increasing the verbosity further (such as =-vv= and =-vvv=). Beware that
+at =TRACE= the API token is logged!
 
 #+begin_example toml
 default_server = "foo"
@@ -47,6 +51,21 @@ isn't as strong.
 
 Coming soon!
 
+** jobs with approval gates
+
+Coming soon!
+** verbosity
+
+=jj= can print log messages using =-v= and adding more =v='s will increase
+verbosity further like it does for =ssh=. So for the second level of verbosity,
+use =-vv=, the third =-vvv=, and so on.
+
+Beware that at =-vvvv=, =jj= will print your API token! This is considered
+helpful in the even that your =token_eval= is having trouble and you need to see
+the output of it.
+
+All logging goes to =stderr= so you can be verbose and continue do any
+processing of the job output (going to =stdout=) without any changes.
 
 * contributing
 ** principles

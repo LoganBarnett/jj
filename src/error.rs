@@ -17,4 +17,5 @@ pub enum AppError {
     JenkinsEnqueueSecondsParseError(std::num::ParseIntError),
     JenkinsEnqueueWaitError(String),
     JenkinsHeaderError(reqwest::header::ToStrError),
+    LoggingInitializationError(log::SetLoggerError),
 }

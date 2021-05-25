@@ -10,6 +10,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi_term"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -69,6 +78,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chrono"
+version = "0.4.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
+dependencies = [
+ "libc",
+ "num-integer",
+ "num-traits",
+ "time",
+ "winapi",
+]
+
+[[package]]
+name = "clap"
+version = "2.33.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37e58ac78573c40708d45522f0d80fa2f01cc4f9b4e2bf749807255454312002"
+dependencies = [
+ "ansi_term",
+ "atty",
+ "bitflags",
+ "strsim 0.8.0",
+ "textwrap 0.11.0",
+ "unicode-width",
+ "vec_map",
+]
+
+[[package]]
 name = "clap"
 version = "3.0.0-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -80,11 +117,21 @@ dependencies = [
  "indexmap",
  "lazy_static",
  "os_str_bytes",
- "strsim",
+ "strsim 0.10.0",
  "termcolor",
- "textwrap",
+ "textwrap 0.12.1",
  "unicode-width",
  "vec_map",
+]
+
+[[package]]
+name = "clap-verbosity-flag"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7d77af89389927c728493ffeabe62bbcb4d9c5f0f805b7058b5cff1e097047d"
+dependencies = [
+ "log",
+ "structopt",
 ]
 
 [[package]]
@@ -433,16 +480,19 @@ checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 name = "jj"
 version = "0.1.0"
 dependencies = [
- "clap",
+ "clap 3.0.0-beta.2",
+ "clap-verbosity-flag",
  "either",
  "futures",
  "futures-io",
  "lazy_static",
+ "log",
  "regex",
  "reqwest",
  "serde",
  "serde_json",
  "serdeconv",
+ "stderrlog",
  "tokio",
 ]
 
@@ -550,6 +600,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f6bb902e437b6d86e03cce10a7e2af662292c5dfef23b65899ea3ac9354ad44"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "num-integer"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
+dependencies = [
+ "autocfg",
+ "num-traits",
 ]
 
 [[package]]
@@ -1056,10 +1116,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "stderrlog"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45a53e2eff3e94a019afa6265e8ee04cb05b9d33fe9f5078b14e4e391d155a38"
+dependencies = [
+ "atty",
+ "chrono",
+ "log",
+ "termcolor",
+ "thread_local",
+]
+
+[[package]]
+name = "strsim"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
+
+[[package]]
 name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "structopt"
+version = "0.3.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5277acd7ee46e63e5168a80734c9f6ee81b1367a7d8772a2d765df2a3705d28c"
+dependencies = [
+ "clap 2.33.3",
+ "lazy_static",
+ "structopt-derive",
+]
+
+[[package]]
+name = "structopt-derive"
+version = "0.4.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ba9cdfda491b814720b6b06e0cac513d922fc407582032e8706e9f137976f90"
+dependencies = [
+ "heck",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "syn"
@@ -1097,11 +1200,39 @@ dependencies = [
 
 [[package]]
 name = "textwrap"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
+name = "textwrap"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "203008d98caf094106cfaba70acfed15e18ed3ddb7d94e49baec153a2b462789"
 dependencies = [
  "unicode-width",
+]
+
+[[package]]
+name = "thread_local"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d40c6d1b69745a6ec6fb1ca717914848da4b44ae29d9b3080cbee91d72a69b14"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
+name = "time"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]
