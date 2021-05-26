@@ -163,7 +163,14 @@ fn parse_why(why: &String) -> Result<u64, error::AppError> {
     lazy_static::lazy_static! {
         // Broken out to print during an error.
         static ref QUEUE_DELAY_REGEX_STRING: &'static str =
-            r"^In the quiet period\. Expires in ((?P<secs>[0-9]+)\.(?P<millis1>[0-9]+) sec|(?P<millis2>[0-9]+) ms)$";
+            // How to do something like sec(?:s)? ?
+            //
+            // Examples witnessed:
+            // Expires in 1.234 ms
+            // Expires in 3 sec
+            // Expires in 3.15 sec
+            // Expires in 3 secs
+            r"^In the quiet period\. Expires in (?:(?P<secs1>[0-9]+) secs?)|(?:(?P<secs2>[0-9]+)\.(?P<millis1>[0-9]+) secs?)|(?:(?P<millis2>[0-9]+) ms)$";
         static ref QUEUE_DELAY_REGEX: regex::Regex = regex::Regex::new(
             &QUEUE_DELAY_REGEX_STRING,
         ).unwrap();
@@ -181,7 +188,8 @@ fn parse_why(why: &String) -> Result<u64, error::AppError> {
                 // "Expires in x ms". Instead of putting in a bunch of
                 // chained conditional logic, just assume 0 seconds if
                 // we are on the latter form.
-                c.name("secs")
+                c.name("secs1")
+                 .or(c.name("secs2"))
                  .map(|x| x.as_str())
                  .or(Some("0"))?,
                 c.name("millis1")
@@ -265,36 +273,96 @@ pub async fn build_queue_item_get<'a>(
     );
     serde_json::from_str(&buffered_response.text)
         .map_err(error::AppError::JenkinsDeserializeError)
-    // Ok(buffered_response.text)
 }
 
-pub async fn build_log_stream<'a>(
+pub fn build_log_stream<'a>(
     config: &'a cli::CliValid,
     url: String,
+    start_pos: u64,
+) -> std::pin::Pin<
+        Box<dyn std::future::Future<
+                Output = Result<(), error::AppError>
+                > + Send + 'a
+            >> {
+    async move {
+        let response = jenkins_request(
+            &config,
+            reqwest::Method::GET,
+            format!("{}logText/progressiveText?start={}", url, start_pos),
+        )
+            .await
+            .map_err(error::AppError::JenkinsBuildStreamError)?;
+
+        debug!(
+            "Headers for stream: \n{}",
+            headers_to_string(response.headers().clone())?,
+        );
+        // This needs to happen before stdout_write lest we anger the borrow
+        // checker.
+        //
+        // TODO: Clean up type parameter usage.
+        let offset = header_parse::<_, u64>("x-text-size", "0", &response)?;
+        let more = header_parse::<_, bool>(
+            "x-more-data",
+            // It may stop appearing if the job is done. Default to false.
+            "false",
+            &response,
+        )?;
+        info!("Found offset of {}.", offset);
+        info!("Need more? {}", more);
+        stdout_write(response)?;
+
+        if !more {
+            Ok(())
+        } else {
+            build_log_stream(&config, url, offset).await
+        }
+    }.boxed()
+}
+
+fn stdout_write(
+    response: reqwest::Response,
 ) -> Result<(), error::AppError> {
-    let response = jenkins_request(
-        &config,
-        reqwest::Method::GET,
-        format!("{}logText/progressiveText?start=0", url),
-    )
-        .await
-        .map_err(error::AppError::JenkinsBuildStreamError)?;
     let mut stream = response.bytes_stream();
     let stdout = std::io::stdout();
     let mut stdout_locked = stdout.lock();
 
-    // stdout.write(stream)?;
-    // stream.forward(stdout).await;
-    // Ok(())
-    // It would be great to be able to just connect these streams together via
-    // some pipe operation, but that seems beyond my capability right now.
-    while let Some(chunk) = stream.next().await {
-        stdout_locked.write(
-            &chunk.map_err(error::AppError::JenkinsBuildResponseReadError)?
-        )
-            .map_err(error::AppError::JenkinsBuildOutputError)?;
-    }
-    Ok(())
+    futures::executor::block_on(async move {
+        // It would be great to be able to just connect these streams together
+        // via some pipe operation, but that seems beyond my capability right
+        // now.
+        let mut result = Ok(());
+        while let Some(chunk) = stream.next().await {
+            result = chunk
+                .map_err(error::AppError::JenkinsBuildResponseReadError)
+                .and_then(|c| {
+                    stdout_locked
+                        .write(&c)
+                        .map_err(error::AppError::JenkinsBuildOutputError)
+                })
+                .map(|_| ())
+        };
+        result
+    })
+}
+
+fn header_parse<'a, 'b, K, V>(
+    header_name: K,
+    default: &str,
+    response: &'a reqwest::Response,
+) -> Result<V, error::AppError>
+    // where T: core::str::FromStr
+// where T: Into<&'b str> + core::str::FromStr
+where
+    K: reqwest::header::AsHeaderName,
+    V: core::str::FromStr,
+{
+    response.headers().get(header_name)
+        .map(|s| s.to_str().unwrap_or(default))
+        .or(Some(default))
+        .unwrap() // Zomg a safe unwrap.
+        .parse::<V>()
+        .map_err(|_| error::AppError::JenkinsBuildParseTextSize)
 }
 
 async fn jenkins_request<'a>(

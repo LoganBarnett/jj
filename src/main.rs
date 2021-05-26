@@ -20,7 +20,7 @@ async fn main() -> Result<(), error::AppError> {
     // then use that to poll/watch the build log.
     jenkins::build_enqueue(&config)
         .and_then(|url| jenkins::build_queue_item_poll(&config, url))
-        .and_then(|url| jenkins::build_log_stream(&config, url))
+        .and_then(|url| jenkins::build_log_stream(&config, url, 0))
         .await
         .and_then(|()| {
             println!("Done!");

@@ -1,0 +1,51 @@
+#+title:     Jenkins Documentation
+#+author:    Logan Barnett-Hoy
+#+email:     logustus@gmail.com
+#+date:      <2021-05-25 Tue>
+#+language:  en
+#+file_tags:
+#+tags:
+
+The Jenkins API documentation doesn't contain a lot of structure or examples of
+payloads. We can document what we find here. This directory contains some
+payloads from Jenkins, but also this document can cover some behaviors.
+
+* Polling the build's log
+
+The general URI is =<base>/<job>/<build number>/logText/progressiveText= to poll
+the build's log.
+
+In the case of being done from [[Waiting in the queue]], the URI is simply =<build
+url>/logText/progressiveText=.
+
+It takes the query parameter of =start=, which is a number indicating the
+position in the log to start from. The resulting response will return the
+=x-text-size= header, which is a number that can be fed into a new =start=.
+
+Optionally =x-more-data= provides a boolean value indicating whether or not we
+should continue polling. =x-more-data= may not be present, in which case the
+polling should end.
+
+* Enqueuing a build
+
+The response will contain the standard =Location= header, which has a URL that
+can be used to query the queue item state.
+
+* Waiting in the queue
+
+When polling the queue state, it will return a body containing an expiry time
+inside the =why= field.  This is the time we should wait for the next request to
+be made. It comes in a few different forms, which seem to differ based on the
+Jenkins version. Here are some variants witnessed:
+
++ "In the quiet period. Expires in 1.234ms"
++ "In the quiet period. Expires in 3.14 sec"
++ "In the quiet period. Expires in 3 sec"
++ "In the quiet period. Expires in 3 secs"
+
+Maybe there's a better, more consistent way to lift this information, but so far
+we've resorted to parsing the text.
+
+Once =why= is =null=, we can inspect =url= to get the true build URL (with the
+build number). Prior to =why= being =null=, =url= will be present but will only
+point to the job's URL (sans build number).
