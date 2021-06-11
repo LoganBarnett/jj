@@ -128,17 +128,21 @@ pub async fn build_enqueue<'a>(
         .await
         .map_err(error::AppError::JenkinsEnqueueError)?;
     let buffered_response = to_buffered_response(response).await?;
-    let location = buffered_response.headers[reqwest::header::LOCATION]
-            .to_str()
-            .map_err(error::AppError::JenkinsHeaderError)?
-            .to_string();
     debug!(
         "result? {}\n{}\n{}",
         buffered_response.status,
-        location,
+        headers_to_string(buffered_response.headers.clone())?,
         buffered_response.text,
     );
     // TODO: Return a URL and make sure this is a URL.
+    // Unwrap it here so we can debug the output regardless of outcome.
+    let location = buffered_response.headers
+        .get(reqwest::header::LOCATION)
+        .ok_or(error::AppError::JenkinsBuildNotFoundError)?
+        .to_str()
+        .map_err(error::AppError::JenkinsHeaderError)?
+        .to_string()
+        ;
     Ok(location)
 }
 
@@ -362,7 +366,7 @@ where
         .or(Some(default))
         .unwrap() // Zomg a safe unwrap.
         .parse::<V>()
-        .map_err(|_| error::AppError::JenkinsBuildParseTextSize)
+        .map_err(|_| error::AppError::JenkinsBuildParseTextSizeError)
 }
 
 async fn jenkins_request<'a>(
