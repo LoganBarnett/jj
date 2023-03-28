@@ -49,3 +49,10 @@ we've resorted to parsing the text.
 Once =why= is =null=, we can inspect =url= to get the true build URL (with the
 build number). Prior to =why= being =null=, =url= will be present but will only
 point to the job's URL (sans build number).
+* Getting job data
+
+In Jenkins nomenclature, the "job" is the entity which defines the settings for
+the tasks ("builds") that get run.
+
+Sometimes we want to get information about the job, such as whether or not it
+requires parameters, and what those parameters are.
