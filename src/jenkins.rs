@@ -37,9 +37,9 @@ use crate::error;
 //
 #[derive(Debug)]
 pub struct BufferedResponse {
-    headers: reqwest::header::HeaderMap,
-    status: reqwest::StatusCode,
-    text: String,
+    pub headers: reqwest::header::HeaderMap,
+    pub status: reqwest::StatusCode,
+    pub text: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
