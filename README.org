@@ -9,6 +9,24 @@
 =jj= is a command line Jenkins job runner. It requires a lightweight
 configuration.
 
+* Why not =jenkins-cli=?
+
+The =jenkins-cli= utility ([[https://www.jenkins.io/doc/book/managing/cli/][docs]]) does much of what =jj= does, but it isn't easy
+to create configurations that are both secure and easy shortcuts. =jj= strives
+to be a better mechanism in which to kick off and watch jobs as well.
+
+A short list of ways in which =jj= differs from =jenkins-cli=:
+1. Authentication can be made secure (via =pass= or environment variables).
+2. Servers are easy to reference to reduce invocation complexity at the command
+   line.
+3. Jobs themselves are also easy to reference to reduce command line invocation
+   complexity.
+4. Jobs can be watched (coming soon!) - new builds on a job are automatically
+   displayed in a persistent run. A sort of =tail -f= for a job.
+5. Child jobs can similarly be configured to watch (coming soon!).
+6. =jj= can be used for similar job invocation / watching on non-Jenkins systems
+   (Concourse, GitHub Actions, etc). Also coming soon!
+
 * usage
 
 ** running with configuration
