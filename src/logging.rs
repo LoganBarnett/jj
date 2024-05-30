@@ -11,6 +11,6 @@ pub fn init_logger(verbosity: usize) -> Result<(), error::AppError> {
         .verbosity(verbosity)
         .init()
         .map_err(error::AppError::LoggingInitializationError)?;
-    warn!("Setup up logger with verbosity {}.", verbosity);
+    info!("Setup up logger with verbosity {}.", verbosity);
     Ok(())
 }

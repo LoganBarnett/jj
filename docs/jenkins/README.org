@@ -56,3 +56,40 @@ the tasks ("builds") that get run.
 
 Sometimes we want to get information about the job, such as whether or not it
 requires parameters, and what those parameters are.
+* Building with parameters
+
+** Querying a job's parameters
+
+I have found this [[https://stackoverflow.com/a/16576408][SO answer]] providing this example link:
+
+#+begin_example
+http://$HOST/jenkins/api/xml?xpath=/hudson/job[1]/build[1]/action[1]/parameter&depth=2
+#+end_example
+
+Which seems to be expecting a lot (lists always have 1 or 2 elements?).
+
+Different builds can have different parameters. This does assume that you
+already have a build, which might not be safe though.
+
+This was also proposed:
+
+#+begin_example
+/job/<job>/lastSuccessfulBuild/api/xml
+#+end_example
+
+Keep in mind the =xml= part can also be =json=.
+
+** Submitting a build with parameters
+
+See https://wiki.jenkins.io/display/JENKINS/Parameterized+Build for
+documentation.  It does warn that the documentation is deprecated but offers no
+future version to reference, and searches all point back to this page.
+
+Use
+=/buildWithParameters?<param-name1>=<param-value1>&<param-name2>=<param-value2>=
+to build with parameters.
+
+If no parameters are available on the job, it just does a =build= instead, so
+=jj= can _always_ use =buildWithParameters= safely.
+
+The parameter name is case-sensitive!
