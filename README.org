@@ -67,7 +67,9 @@ isn't as strong.
 
 ** jobs with parameters
 
-Coming soon!
+Simply use =--param foo=bar= or =-P foo=bar= (add more =--params= / =-P= uses
+for additional parameters) to provide parameters to the build.  Otherwise its
+defaults will be assumed for all missing parameters.
 
 ** jobs with approval gates
 

@@ -78,3 +78,18 @@ This was also proposed:
 #+end_example
 
 Keep in mind the =xml= part can also be =json=.
+
+** Submitting a build with parameters
+
+See https://wiki.jenkins.io/display/JENKINS/Parameterized+Build for
+documentation.  It does warn that the documentation is deprecated but offers no
+future version to reference, and searches all point back to this page.
+
+Use
+=/buildWithParameters?<param-name1>=<param-value1>&<param-name2>=<param-value2>=
+to build with parameters.
+
+If no parameters are available on the job, it just does a =build= instead, so
+=jj= can _always_ use =buildWithParameters= safely.
+
+The parameter name is case-sensitive!

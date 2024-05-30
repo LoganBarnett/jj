@@ -1,10 +1,12 @@
 use crate::error;
+use log::warn;
 use serde::{Deserialize, Serialize};
 use serde;
 use serdeconv;
 use std::collections::{HashMap};
 use std::env;
 use std::fs;
+use std::io::ErrorKind::NotFound;
 use std::process::Command;
 
 #[derive(Serialize, Deserialize)]
@@ -65,7 +67,26 @@ fn config_from_file() -> Result<ConfigFromFile, error::AppError> {
             &"jj".to_string(),
             &"config.toml".to_string(),
         ])
-    ).map_err(error::AppError::ConfigDeserializationError)
+    )
+        .or_else(|err| {
+            // Better way to do this?  What happens if it is not a
+            // std::io::Error?
+            match err.concrete_cause::<std::io::Error>() {
+                Some(inner) => {
+                    if inner.kind() == NotFound {
+                        warn!("No configuration file found, assuming empty configuration...");
+                        Ok(ConfigFromFile {
+                            default_server: "".to_string(),
+                            servers: HashMap::new(),
+                        })
+                    } else {
+                        Err(err)
+                    }
+                },
+                None => Err(err),
+            }
+        })
+        .map_err(error::AppError::ConfigDeserializationError)
 }
 
 // defaultServer should exist among servers, or something is wrong.

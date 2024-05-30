@@ -40,6 +40,7 @@
       };
     in pkgs.mkShell {
       buildInputs = [
+        pkgs.darwin.apple_sdk.frameworks.Security
         pkgs.cargo
         pkgs.jdk
         pkgs.jenkins

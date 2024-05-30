@@ -9,6 +9,7 @@ pub enum AppError {
     ConfigVarError(std::env::VarError),
     JenkinsBuildNotFoundError,
     JenkinsBuildParseTextSizeError,
+    JenkinsBuildParamSerializeError(serde_url_params::Error),
     JenkinsBuildStreamError(reqwest::Error),
     JenkinsBuildResponseReadError(reqwest::Error),
     JenkinsBuildOutputError(std::io::Error),

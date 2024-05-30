@@ -27,8 +27,12 @@ use log::*;
 use serde::{Deserialize, Serialize};
 // Used for writing to our stdout via a stream.
 use std::io::Write;
+use std::collections::HashMap;
+use serde_url_params;
 use crate::cli;
 use crate::error;
+use crate::error::AppError;
+use crate::error::AppError::JenkinsBuildParamSerializeError;
 
 // Responses are consumed the moment you read in something like its body. If
 // easily toggleable debugging is desired, reqwest::Response is not the way to
@@ -65,7 +69,7 @@ pub struct JenkinsQueueItem {
 pub struct JenkinsQueueItemAction {
     #[serde(alias = "_class")]
     pub class: String,
-    pub causes: Vec<JenkinsQueueItemActionCause>,
+    pub causes: Option<Vec<JenkinsQueueItemActionCause>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -112,11 +116,23 @@ async fn to_buffered_response(
     })
 }
 
+pub fn params_to_query_params(
+    params: &HashMap<String, String>,
+) -> Result<String, AppError> {
+    serde_url_params::to_string(&params)
+        .map_err(JenkinsBuildParamSerializeError)
+}
+
 // Returns the link to the queue item.
 pub async fn build_enqueue<'a>(
     config: &'a cli::CliValid,
 ) -> Result<String, error::AppError> {
-    let url = format!("{}/job/{}/build", config.server.host_url, config.job);
+    let url = format!(
+        "{}/job/{}/buildWithParameters?{}",
+        config.server.host_url,
+        config.job,
+        params_to_query_params(&config.params)?,
+    );
     debug!("Enqueueing at '{}'", url);
     trace!("Using token {}", config.server.token);
     let response = jenkins_request(
