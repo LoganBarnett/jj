@@ -120,4 +120,25 @@ above principles. That being said, expect adjustments or requests to the
 contributions to bring it into alignment with the above principles.
 
 * design
+** architecture
+
+This repository follows the same convention as Go's =cmd/= pattern: the
+library crate is the product and the binary crate is the frontend.  The
+library owns all domain logic — external service communication, business
+rules, data types, and error types — including any I/O that is intrinsic to
+the domain (HTTP calls, database access, file reads, and so on).  The binary's
+sole responsibilities are parsing arguments, reading configuration files,
+initialising logging, writing to stdout/stderr, and returning exit codes.
+
+The formal name for this is the /library-first/ design, related to Hexagonal
+Architecture's notion of ports and adapters.  That pattern would go further
+and abstract all I/O behind traits, allowing transports to be swapped out.  We
+deliberately stop short of that: the external interactions this library
+performs /are/ the domain, not infrastructure to be abstracted away.  There is
+nothing meaningful to inject.
+
+The practical test: if another team wanted to embed this functionality in
+their own tool, they should be able to import the library crate directly
+without touching the binary crate.
+
 ** operational flow
