@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use std::collections::HashMap;
 use std::error::Error;
+use std::path::PathBuf;
 
 use crate::config;
 use crate::error;
@@ -30,6 +31,9 @@ where
 pub struct CliRaw {
   #[arg(short, long, default_value = "default")]
   pub server: String,
+  /// Path to the configuration file (overrides default ~/.config/jj/config.toml)
+  #[arg(long, env = "JJ_CONFIG")]
+  pub config: Option<PathBuf>,
   /// Log level (trace, debug, info, warn, error)
   #[arg(long, env = "LOG_LEVEL")]
   pub log_level: Option<String>,

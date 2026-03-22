@@ -69,10 +69,13 @@ pub struct ConfigServer {
 
 impl Config {
   pub fn from_cli_and_file(cli: &CliRaw) -> Result<Self, ConfigError> {
-    let home = std::env::var("HOME").map_err(ConfigError::HomeVar)?;
-    let path: PathBuf = [&home, ".config", "jj", "config.toml"]
-      .iter()
-      .collect();
+    let path: PathBuf = match &cli.config {
+      Some(p) => p.clone(),
+      None => {
+        let home = std::env::var("HOME").map_err(ConfigError::HomeVar)?;
+        [&home, ".config", "jj", "config.toml"].iter().collect()
+      }
+    };
     let contents =
       std::fs::read_to_string(&path).map_err(|source| ConfigError::FileRead {
         path: path.clone(),
