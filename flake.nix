@@ -1,72 +1,100 @@
 {
-  description = "";
+  description = "jj - trigger Jenkins builds from the command line";
   inputs = {
-    nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
+    # LLM: Do NOT change this URL unless explicitly directed. This is the
+    # correct format for nixpkgs stable (25.11 is correct, not nixos-25.11).
+    nixpkgs.url = "github:NixOS/nixpkgs/25.11";
     rust-overlay.url = "github:oxalica/rust-overlay";
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, rust-overlay }@inputs: let
+  outputs = { self, nixpkgs, rust-overlay, crane }@inputs: let
+    forAllSystems = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed;
     overlays = [
       (import rust-overlay)
-      (final: prev: {
-        jenkins = (prev.jenkins or {}) // {
-          config = {
-            # Options can be found here:
-            # https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/services/continuous-integration/jenkins/default.nix
-            options = {
-              services.jenkins = {
-                enable = true;
-                withCLI = true;
-              };
-            };
-          };
-        };
-        # Naming this "rust" clobbers some things in nixpkgs or rust-overlay
-        # that need the "rust" package to be a specific way.  Just use this.
-        rust-local = prev.rust-bin.stable.latest.default.override {
-          extensions = [
-            # For rust-analyzer and others.  See
-            # https://nixos.wiki/wiki/Rust#Shell.nix_example for some details.
-            "rust-src"
-            "rust-analyzer"
-            "rustfmt-preview"
-          ];
-        };
-      })
     ];
-    buildInputs = pkgs: (
-      [
-        pkgs.cargo
-        pkgs.jdk
-        pkgs.jenkins
-        pkgs.rust-local
-        pkgs.rustfmt
-        pkgs.rustup
-        # Required for Jenkins to do its own memory management.  See
-        # https://groups.google.com/g/jenkinsci-users/c/rrt25fUJCWY/m/1fY0El6lBwAJ
-        # for additional research done on this topic.
-        # pkgs.top
-      ] ++ pkgs.lib.optionals pkgs.stdenv.targetPlatform.isDarwin [
-        pkgs.darwin.apple_sdk.frameworks.Security
-        # Needed by something, but it's not apparent what.
-        pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-      ]
-    );
+    pkgsFor = system: import nixpkgs {
+      inherit system;
+      overlays = overlays;
+    };
+
+    workspaceCrates = {
+      cli = {
+        name = "jj";
+        binary = "jj";
+        description = "Jenkins job CLI";
+      };
+    };
+
+    devPackages = pkgs: let
+      rust = pkgs.rust-bin.stable.latest.default.override {
+        extensions = [
+          # For rust-analyzer and others.  See
+          # https://nixos.wiki/wiki/Rust#Shell.nix_example for some details.
+          "rust-src"
+          "rust-analyzer"
+          "rustfmt"
+        ];
+      };
+    in [
+      rust
+      pkgs.cargo-sweep
+      pkgs.jdk
+      pkgs.jenkins
+      pkgs.jq
+      pkgs.openssl
+      pkgs.pkg-config
+    ];
+
     shellHook = ''
       export JENKINS_HOME=$PWD/runner-homes/jenkins
       mkdir -p $JENKINS_HOME
     '';
   in {
 
-    devShells.aarch64-darwin.default = let
-      system = "aarch64-darwin";
-      pkgs = import nixpkgs {
-        inherit overlays system;
+    devShells = forAllSystems (system: let
+      pkgs = pkgsFor system;
+    in {
+      default = pkgs.mkShell {
+        buildInputs = devPackages pkgs;
+        inherit shellHook;
       };
-    in pkgs.mkShell {
-      buildInputs = (buildInputs pkgs);
-      inherit shellHook;
-    };
+    });
+
+    packages = forAllSystems (system: let
+      pkgs = pkgsFor system;
+      craneLib = (crane.mkLib pkgs).overrideToolchain
+        (p: p.rust-bin.stable.latest.default);
+
+      commonArgs = {
+        src = craneLib.cleanCargoSource ./.;
+        buildInputs = with pkgs; [
+          openssl
+        ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin; [
+          libiconv
+        ]);
+        nativeBuildInputs = with pkgs; [
+          pkg-config
+        ];
+      };
+
+      cratePackages = pkgs.lib.mapAttrs (key: crate:
+        craneLib.buildPackage (commonArgs // {
+          pname = crate.name;
+          cargoExtraArgs = "-p ${crate.name}";
+        })
+      ) workspaceCrates;
+
+    in cratePackages // {
+      default = craneLib.buildPackage (commonArgs // { pname = "jj"; });
+    });
+
+    apps = forAllSystems (system: let
+      pkgs = pkgsFor system;
+    in pkgs.lib.mapAttrs (key: crate: {
+      type = "app";
+      program = "${self.packages.${system}.${key}}/bin/${crate.binary}";
+    }) workspaceCrates);
 
   };
 }

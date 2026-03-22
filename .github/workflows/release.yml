@@ -1,0 +1,45 @@
+name: Release
+on:
+  push:
+    branches:
+      - main
+jobs:
+  release-package:
+    # It would be nice to run on Alpine + the official Nix Docker image, but
+    # GitHub only allows a select few Ubuntu images as of 2024-08-26.  See
+    # https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idruns-on
+    # for available options.
+    runs-on: ubuntu-latest
+    env:
+      GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
+    # Shameful theft from:
+    # https://github.com/PrismLauncher/refraction/actions/runs/7080047623/workflow
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v8
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@v2
+        # TODO: This needs more work.  This is where our needs deviate from the
+        # example.  We need to bump the version, rotate the CHANGELOG.org file,
+        # create our release binaries, tag, and push those binaries to GitHub's
+        # releases.
+        # TODO: Some of this gets reused quite a bit across various projects
+        # I've worked on.  Create standalone programs to do this.
+      - name: Build Environment
+        id: build
+        run: |
+          nix build --print-build-logs --accept-flake-config .#package-${{ matrix.arch }}
+          [ ! -L result ] && exit 1
+          echo "path=$(realpath result)" >> "$GITHUB_OUTPUT"
+      - name: Configure Git
+        run: |
+          git config --global user.email "tip@gha"
+          git config --global user.name "GHA"
+      - name: Bump and commit
+        run: |
+          ./release.rb
+      - name: Push to rubygems.org
+        run: |
+          gem build *.gemspec
+          gem push --debug *.gem

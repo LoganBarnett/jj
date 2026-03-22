@@ -1,3 +1,9 @@
-# Find additionl settings here: https://rust-lang.github.io/rustfmt/
+# Find additional settings here: https://rust-lang.github.io/rustfmt/
+edition = "2021"
 max_width = 80
 tab_spaces = 2
+fn_params_layout = "Tall"
+fn_call_width = 80
+use_field_init_shorthand = true
+remove_nested_parens = true
+newline_style = "Unix"

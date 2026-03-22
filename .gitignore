@@ -4,6 +4,9 @@
 /runner-homes/jenkins/workspace
 /runner-homes/jenkins/.lastStarted
 /runner-homes/jenkins/.owner
+# We need some more investigation if there's anything we want to keep in here,
+# but let's just ignore all of it for now.
+/runner-homes/jenkins
 # Jenkins records what the next build number will be.
 nextBuildNumber
 # A build in Jenkins is the execution of a job.  We don't need to track them.
