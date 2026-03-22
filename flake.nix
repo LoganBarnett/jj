@@ -96,13 +96,24 @@
         nativeBuildInputs = with pkgs; [
           pkg-config
         ];
+        # Run only unit tests, skip integration tests in tests/ directories.
+        # Integration tests require a live Jenkins instance not available in
+        # the Nix sandbox.
+        cargoTestExtraArgs = "--lib --bins";
       };
 
+      # Build individual crate packages from workspaceCrates.  When a
+      # per-crate file exists under nix/packages/, it is used instead of
+      # the generic crane build; this lets individual crates carry custom
+      # build options without cluttering the top-level flake.
       cratePackages = pkgs.lib.mapAttrs (key: crate:
-        craneLib.buildPackage (commonArgs // {
-          pname = crate.name;
-          cargoExtraArgs = "-p ${crate.name}";
-        })
+        let pkgFile = ./. + "/nix/packages/${key}.nix";
+        in if builtins.pathExists pkgFile
+          then import pkgFile { inherit craneLib commonArgs; }
+          else craneLib.buildPackage (commonArgs // {
+            pname = crate.name;
+            cargoExtraArgs = "-p ${crate.name}";
+          })
       ) workspaceCrates;
 
     in cratePackages // {

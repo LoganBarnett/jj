@@ -12,7 +12,7 @@ authors = ["Logan Barnett <logustus@gmail.com>"]
 
 [workspace.dependencies]
 tracing-journald = "0.3"
-hash-color-lib = { path = "../hash-color/crates/lib" }
+hash-color-lib = { git = "ssh://git@gitea.proton:2222/logan/hash-color.git" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 tap = "1.0"
