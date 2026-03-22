@@ -7,6 +7,8 @@ mod jenkins;
 mod logging;
 mod error;
 
+use log::*;
+
 #[tokio::main]
 async fn main() -> Result<(), error::AppError> {
     let config = config::config_load()
@@ -23,7 +25,7 @@ async fn main() -> Result<(), error::AppError> {
         .and_then(|url| jenkins::build_log_stream(&config, url, 0))
         .await
         .and_then(|()| {
-            println!("Done!");
+            info!("Done!");
             Ok(())
         })
         // .and_then(|s| {

@@ -1,1 +1,33 @@
 /target
+
+# Ignore Jenkins temporary files or files that it will generate automatically.
+/runner-homes/jenkins/workspace
+/runner-homes/jenkins/.lastStarted
+/runner-homes/jenkins/.owner
+# Jenkins records what the next build number will be.
+nextBuildNumber
+# A build in Jenkins is the execution of a job.  We don't need to track them.
+builds/
+# Jenkins logs.
+logs/
+# Jenkins secrets are not ignored in here because we actually want them for a
+# brain-dead easy setup of Jenkins.  Don't put anything you care about in
+# Jenkins!
+# secrets/
+# API tokens are tracked on disk, but we don't want to track them in git.
+apiTokenStats.xml
+war/.timestamp
+# These are both version stamps.  Unknown if we should ignore or not.  We should
+# look at disabling updates though and then we could probably safely commit
+# these.  They should be kept in lockstep with whatever the Nix Flake defines.
+# jenkins.install.InstallUtil.lastExecVersion
+# jenkins.install.UpgradeWizard.state
+# Tracks the queue of the builds - specifically build numbers and such.  Ignore.
+/queue.xml
+# And the backup.  Why do we even have this?
+/queue.xml.bak
+# Don't keep anything on this Jenkins instance that you care about.  We
+# prioritize easy setup and part of that means sharing the password.
+/secret.key
+/secret.key.not-so-secret
+# Incomplete.  Add more.

@@ -6,27 +6,46 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.dev]
+# Prevent 36GB target/debug directories.
+debug = false
+
 [dependencies]
-bytes = "1.0.1"
-clap = "3.0.0-beta.2"
-clap-verbosity-flag = "0.3.1"
+# Get a bytes stream from HTTP responses.  May not be used.
+bytes = "1.7.1"
+# Command line argument parsing.
+clap = { version = "4.5.7", features = ["env", "derive", "wrap_help"] }
+# Allow us to derive verbosity from command line arguments.
+clap-verbosity-flag = "2.2.0"
 # I'm surprised this isn't in the core.
-either = "1.6.1"
+either = "1.13.0"
 # Use futures to block on async operations.
-futures = "0.3.15"
+futures = "0.3.30"
 # Included just so we can reference the Error type from Command's Output.
-futures-io = "0.3.15"
-lazy_static = "1.4.0"
-log = "0.4.14"
-reqwest = { version = "0.11.3", features = ["blocking", "json", "stream" ] }
-regex = "1.5.4"
-serde = { version = "1.0.125", features = ["derive"] }
-serde_json = "1.0.59"
-serdeconv = "0.2.1"
-stderrlog = "0.5.1"
+futures-io = "0.3.30"
+# Allow us to declare complex structures statically.
+lazy_static = "1.5.0"
+# A generalized logger.
+log = "0.4.21"
+# Give us functional programming partial application.
+partial_application = "0.2.1"
+# Make HTTP requests.  Curl for Rust.
+reqwest = { version = "0.12.7", features = ["blocking", "json", "stream" ] }
+# Handle regular expressions.
+regex = "1.10.5"
+# Serialization/Deserialization.
+serde = { version = "1.0.209", features = ["derive"] }
+# Serialization/Deserialization, but for JSON for our HTTP APIs.
+serde_json = "1.0.127"
+# Let us deserialize files such as TOML or YAML.
+serdeconv = "0.4.1"
+# Send our logs to stderr to unclutter stdout's actual output.
+stderrlog = "0.6.0"
+# Function chaining to avoid needless local variables.
+tap = "1.0.1"
 # Depend upon tokio so we can use block_on I guess.
-tokio = { version = "1.5.0", features = ["full"] }
+tokio = { version = "1.39.3", features = ["full"] }
 # Give us the ability to serialize URL parameters with proper sanitization.
-url = "2.5.0"
+url = "2.5.1"
 # Give us the ability to serialize URL parameters with proper sanitization.
 serde_url_params = "0.2.1"

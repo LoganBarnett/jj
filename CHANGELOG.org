@@ -1,0 +1,25 @@
+#+title:     Changelog
+#+author:    Logan Barnett
+#+email:     logustus@gmail.com
+#+date:      <2024-08-26 Mon>
+#+language:  en
+#+file_tags:
+#+tags:
+
+* changelog
+** How to Use
+
+This project uses a true CICD build pipeline, so when your pull request is
+merged, the build process will create a new version of the software.  To
+document what has changed in a very human readable way, fill this document out
+as part of the changes you are making.
+
+Add human descriptions of your changes in all that apply for =Breaking=,
+=Additions=, and =Fixes= sub-sections.  Do this only under the =Upcoming=
+section.  When your changes are merged, these will be promoted to the stamped
+version automatically.
+
+** Upcoming
+*** Breaking
+*** Additions
+*** Fixes

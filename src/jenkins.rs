@@ -328,8 +328,8 @@ pub fn build_log_stream<'a>(
             "false",
             &response,
         )?;
-        info!("Found offset of {}.", offset);
-        info!("Need more? {}", more);
+        debug!("Found offset of {}.", offset);
+        debug!("Need more? {}", more);
         stdout_write(response)?;
 
         if !more {

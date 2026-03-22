@@ -1,4 +1,5 @@
-use clap::Clap;
+use clap::Parser;
+use clap_verbosity_flag::Verbosity;
 use crate::config;
 use crate::error;
 use crate::logging;
@@ -7,13 +8,17 @@ use std::collections::HashMap;
 
 /// Parse a single key-value pair.
 // Shameful rip from:
-// https://github.com/clap-rs/clap_derive/blob/master/examples/keyvalue.rs
-fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn Error>>
+// https://github.com/clap-rs/clap/blob/master/examples/typed-derive.rs#L24-L26
+// and
+// https://github.com/clap-rs/clap/blob/master/examples/typed-derive.rs#L47-L59
+fn parse_key_val<T, U>(
+    s: &str,
+) -> Result<(T, U), Box<dyn Error + Send + Sync + 'static>>
 where
     T: std::str::FromStr,
-    T::Err: Error + 'static,
+    T::Err: Error + Send + Sync + 'static,
     U: std::str::FromStr,
-    U::Err: Error + 'static,
+    U::Err: Error + Send + Sync + 'static,
 {
     let pos = s
         .find('=')
@@ -21,27 +26,27 @@ where
     Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
-#[derive(Clap)]
-#[clap(
+#[derive(Parser)]
+#[command(
     name = "jj",
     about = "Run Jenkins jobs from the command line.",
 )]
-#[clap(setting = clap::AppSettings::ColoredHelp)]
 // Without a structopt declaration, the argument is positional.
 pub struct Cli {
     pub job: String,
-    #[clap(short, long, default_value = "default")]
+    #[arg(short, long, default_value = "default")]
     pub server: String,
-    #[clap(long, short = 'v', parse(from_occurrences))]
-    pub verbosity: usize,
+    #[command(flatten)]
+    pub verbosity: Verbosity,
     // number_of_values = 1 means --param must be repeated for each pair.
     // Values must be provided with an equals sign separating them.  See
     // https://github.com/clap-rs/clap_derive/blob/master/examples/keyvalue.rs
     // for examples.
-    #[clap(
+    #[arg(
         long = "param",
         short = 'P',
-        parse(try_from_str = parse_key_val),
+        value_parser = parse_key_val::<String, String>,
+        // Forces the user to specify another argument for a new key value pair.
         number_of_values = 1,
     )]
     pub params: Vec<(String, String)>,
@@ -51,14 +56,14 @@ pub struct CliValid {
     pub job: String,
     pub params: HashMap<String, String>,
     pub server: config::ConfigServerParsed,
-    pub verbosity: usize,
+    pub verbosity: Verbosity,
 }
 
 pub fn cli_validate(
     config: config::ConfigParsed,
 ) -> Result<CliValid, error::AppError> {
     let cli = Cli::parse();
-    logging::init_logger(cli.verbosity)?;
+    logging::init_logger(&cli.verbosity)?;
     let server_name = if cli.server == "default" {
         config.default_server
     } else {

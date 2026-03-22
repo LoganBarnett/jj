@@ -1,3 +1,4 @@
+use clap_verbosity_flag::Verbosity;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -20,4 +21,5 @@ pub enum AppError {
     JenkinsEnqueueWaitError(String),
     JenkinsHeaderError(reqwest::header::ToStrError),
     LoggingInitializationError(log::SetLoggerError),
+    LoggingLogLevelNotFoundError(Verbosity),
 }
