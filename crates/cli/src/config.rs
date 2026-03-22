@@ -29,6 +29,8 @@ pub enum ConfigError {
   TokenRead(std::string::FromUtf8Error),
   #[error("Missing HOME environment variable: {0}")]
   HomeVar(std::env::VarError),
+  #[error("Missing USER environment variable: {0}")]
+  UserVar(std::env::VarError),
   #[error("Configuration validation failed: {0}")]
   Validation(String),
 }
@@ -48,7 +50,7 @@ pub struct ConfigServerFileRaw {
   // The string to be evaluated using the shell which will provide the token.
   // To embed a literal token, wrap it in single quotes: "'my-token'".
   pub token_eval: String,
-  pub username: String,
+  pub username: Option<String>,
 }
 
 #[derive(Clone)]
@@ -105,13 +107,17 @@ impl Config {
       .servers
       .into_iter()
       .map(|(k, v)| {
+        let username = match v.username {
+          Some(u) => u,
+          None => std::env::var("USER").map_err(ConfigError::UserVar)?,
+        };
         Ok((
           k.clone(),
           ConfigServer {
             name: k,
             host_url: v.host_url,
             token: token_eval(v.token_eval)?,
-            username: v.username,
+            username,
           },
         ))
       })
