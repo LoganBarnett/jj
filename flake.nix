@@ -44,12 +44,32 @@
       pkgs.jq
       pkgs.openssl
       pkgs.pkg-config
+      pkgs.python3
     ];
 
-    shellHook = ''
+    # Build a directory of symlinks to plugin .jpi files from the attrset
+    # produced by jenkins/plugins.nix.  Mirrors the NixOS jenkins module's
+    # plugin installation logic for non-NixOS hosts.
+    jenkinsPluginsDir = pkgs:
+      let plugins = import ./jenkins/plugins.nix { inherit (pkgs) fetchurl stdenv; };
+      in pkgs.linkFarm "jenkins-plugins"
+           (pkgs.lib.mapAttrsToList
+             (name: drv: { name = "${name}.jpi"; path = drv; })
+             plugins);
+
+    shellHook = pkgs: ''
       export JENKINS_HOME=$PWD/runner-homes/jenkins
-      mkdir -p $JENKINS_HOME
+      export CASC_JENKINS_CONFIG=$PWD/jenkins/casc
+      # Disable the first-run setup wizard; JCasC handles all configuration.
+      export JAVA_OPTS="''${JAVA_OPTS:-} -Djenkins.install.runSetupWizard=false"
+      mkdir -p "$JENKINS_HOME/plugins"
+      # Symlink each plugin from the Nix store into JENKINS_HOME so Jenkins
+      # finds them without a manual install step.
+      for f in ${jenkinsPluginsDir pkgs}/*.jpi; do
+        ln -sf "$f" "$JENKINS_HOME/plugins/"
+      done
     '';
+
   in {
 
     devShells = forAllSystems (system: let
@@ -57,7 +77,7 @@
     in {
       default = pkgs.mkShell {
         buildInputs = devPackages pkgs;
-        inherit shellHook;
+        shellHook = shellHook pkgs;
       };
     });
 

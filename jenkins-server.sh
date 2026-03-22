@@ -20,17 +20,18 @@ if which nix ; then
     --raw nixpkgs#legacyPackages.$double.jenkins \
     --extra-experimental-features nix-command \
     --extra-experimental-features flakes
-)/webapps/jenkins.war"
+  )/webapps/jenkins.war"
+
+  # Regenerate job config.xml files from the Groovy sources before starting.
+  python3 "$(dirname "$0")/jenkins/apply-jobs.py"
+
   java \
-    -jar $jenkinsWarPath \
+    -Djava.awt.headless=true \
+    -Djenkins.install.runSetupWizard=false \
+    ${JAVA_OPTS:-} \
+    -jar "$jenkinsWarPath" \
     --enable-future-java \
     --httpListenAddress=$listenAddress \
     --httpPort=$listenPort \
-    --prefix=$prefix \
-    -Djava.awt.headless=true
-    # Java options for the start of the command.
-    # $\\{concatStringsSep " " cfg.extraJavaOptions} \
-    # Java optoins after all other Java args are done. Might need a --
-    # separator.
-    # $\\{concatStringsSep " " cfg.extraOptions}
+    --prefix=$prefix
 fi

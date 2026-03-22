@@ -1,0 +1,22 @@
+jenkins:
+  numExecutors: 2
+  # Disable quiet period so test builds start immediately.
+  quietPeriod: 0
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          name: "Administrator"
+          # Override at runtime: export JENKINS_ADMIN_PASSWORD=secret
+          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: false
+
+unclassified:
+  location:
+    url: "http://localhost:11990/"

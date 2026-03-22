@@ -1,0 +1,45 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    # Five-minute Jenkins startup + ~two-minute test suite, plus Nix and Cargo
+    # build time.  Thirty minutes is generous but prevents hung jobs from
+    # blocking indefinitely.
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v8
+
+        # Caches the Nix store between runs so the 55 Jenkins plugin
+        # derivations are not re-fetched on every push.
+      - name: Set up Nix binary cache
+        uses: DeterminateSystems/magic-nix-cache-action@v2
+
+        # Cache downloaded crate sources and compiled artifacts so incremental
+        # builds are fast after the first run.
+      - name: Cache Cargo artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+        # `nix develop --command` runs the dev-shell hook (which symlinks
+        # Jenkins plugins and exports JENKINS_HOME / CASC_JENKINS_CONFIG /
+        # JAVA_OPTS) and then executes the script.  Everything — Jenkins
+        # startup, API-token generation, cargo build, and cargo test — lives
+        # in the script to avoid quoting gymnastics in YAML.
+      - name: Start Jenkins and run integration tests
+        run: nix develop --command bash .github/scripts/run-tests.sh
