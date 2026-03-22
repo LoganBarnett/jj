@@ -24,6 +24,7 @@ thiserror = { workspace = true }
 tap = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 regex = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }

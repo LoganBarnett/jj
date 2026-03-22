@@ -6,7 +6,7 @@ use jj_lib::build::BuildExitCode;
 use tokio::{signal, task::JoinSet, time};
 use tracing::{error, info};
 
-use crate::cli::CliValid;
+use crate::cli::CliJobFollowValid;
 use crate::error::AppError;
 use crate::jenkins;
 
@@ -19,10 +19,12 @@ fn build_colorizer() -> HashColorizer {
 // Adopts the highest-numbered currently-running build, or waits for the next
 // build to start.  Streams its log to completion, then exits with the build's
 // result code.
-pub async fn follow_next(config: &CliValid) -> Result<BuildExitCode, AppError> {
+pub async fn follow_once(config: &CliJobFollowValid) -> Result<BuildExitCode, AppError> {
   let colorizer = build_colorizer();
 
-  let builds = jenkins::jenkins_job_builds(config).await?;
+  let builds =
+    jenkins::jenkins_job_builds(&config.client, &config.server, &config.job)
+      .await?;
   let adopted_info = builds
     .builds
     .iter()
@@ -40,7 +42,12 @@ pub async fn follow_next(config: &CliValid) -> Result<BuildExitCode, AppError> {
   } else {
     loop {
       time::sleep(POLL_INTERVAL).await;
-      let new_builds = jenkins::jenkins_job_builds(config).await?;
+      let new_builds = jenkins::jenkins_job_builds(
+        &config.client,
+        &config.server,
+        &config.job,
+      )
+      .await?;
       let candidate = new_builds
         .builds
         .iter()
@@ -54,9 +61,19 @@ pub async fn follow_next(config: &CliValid) -> Result<BuildExitCode, AppError> {
   };
 
   info!(build_number, "Streaming build log");
-  jenkins::build_log_stream(config, build_url, 0, build_number, &colorizer).await?;
+  jenkins::build_log_stream(
+    &config.client,
+    &config.server,
+    build_url,
+    0,
+    build_number,
+    &colorizer,
+  )
+  .await?;
 
-  let final_builds = jenkins::jenkins_job_builds(config).await?;
+  let final_builds =
+    jenkins::jenkins_job_builds(&config.client, &config.server, &config.job)
+      .await?;
   let result_str = final_builds
     .builds
     .iter()
@@ -67,7 +84,7 @@ pub async fn follow_next(config: &CliValid) -> Result<BuildExitCode, AppError> {
 
 // Watches the job continuously, streaming logs from every active build until
 // cancelled with Ctrl+C.
-pub async fn follow(config: &CliValid) -> Result<(), AppError> {
+pub async fn follow(config: &CliJobFollowValid) -> Result<(), AppError> {
   let mut seen: HashSet<u64> = HashSet::new();
   let mut tasks: JoinSet<()> = JoinSet::new();
   let mut interval = time::interval(POLL_INTERVAL);
@@ -76,19 +93,25 @@ pub async fn follow(config: &CliValid) -> Result<(), AppError> {
     tokio::select! {
       _ = signal::ctrl_c() => break,
       _ = interval.tick() => {
-        match jenkins::jenkins_job_builds(config).await {
+        match jenkins::jenkins_job_builds(
+          &config.client,
+          &config.server,
+          &config.job,
+        ).await {
           Ok(builds) => {
             for build in builds.builds {
               if build.building && !seen.contains(&build.number) {
                 seen.insert(build.number);
-                let config_clone = config.clone();
+                let client_clone = config.client.clone();
+                let server_clone = config.server.clone();
                 let build_number = build.number;
                 let build_url = build.url.clone();
                 tasks.spawn(async move {
                   let col = build_colorizer();
                   info!(build_number, "Streaming build log");
                   match jenkins::build_log_stream(
-                    &config_clone,
+                    &client_clone,
+                    &server_clone,
                     build_url,
                     0,
                     build_number,

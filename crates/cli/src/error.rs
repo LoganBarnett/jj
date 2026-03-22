@@ -15,7 +15,7 @@ pub enum AppError {
   #[error("Failed to serialize build parameters: {0}")]
   JenkinsBuildParamSerialize(serde_url_params::Error),
   #[error("Failed to stream build log: {0}")]
-  JenkinsBuildStream(reqwest::Error),
+  JenkinsBuildStream(reqwest_middleware::Error),
   #[error("Failed to read build response body: {0}")]
   JenkinsBuildResponseRead(reqwest::Error),
   #[error("Failed to write build output to stdout: {0}")]
@@ -23,7 +23,7 @@ pub enum AppError {
   #[error("Failed to deserialize Jenkins response: {0}")]
   JenkinsDeserialize(serde_json::Error),
   #[error("Failed to enqueue Jenkins build: {0}")]
-  JenkinsEnqueue(reqwest::Error),
+  JenkinsEnqueue(reqwest_middleware::Error),
   #[error("Failed to deserialize Jenkins queue response: {0}")]
   JenkinsEnqueueDeserialize(String),
   #[error("Failed to parse queue wait duration: {0}")]
@@ -33,7 +33,15 @@ pub enum AppError {
   #[error("Failed to parse response header value: {0}")]
   JenkinsHeader(reqwest::header::ToStrError),
   #[error("Failed to request Jenkins job builds: {0}")]
-  JenkinsJobBuildsRequest(reqwest::Error),
+  JenkinsJobBuildsRequest(reqwest_middleware::Error),
   #[error("Failed to deserialize Jenkins job builds response: {0}")]
   JenkinsJobBuildsDeserialize(serde_json::Error),
+  #[error("Failed to request Jenkins build detail: {0}")]
+  JenkinsBuildDetailRequest(reqwest_middleware::Error),
+  #[error("Failed to deserialize Jenkins build detail: {0}")]
+  JenkinsBuildDetailDeserialize(serde_json::Error),
+  #[error("Failed to fetch Jenkins build log: {0}")]
+  JenkinsBuildLogFetch(reqwest_middleware::Error),
+  #[error("Failed to read Jenkins build log response: {0}")]
+  JenkinsBuildLogRead(reqwest::Error),
 }

@@ -17,12 +17,13 @@ use futures::FutureExt;
 use futures::StreamExt;
 use hash_color_lib::HashColorizer;
 use jj_lib::build::BuildStatus;
+use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Write;
 use tracing::*;
 
-use crate::cli;
+use crate::config::ConfigServer;
 use crate::error;
 use crate::error::AppError;
 use crate::error::AppError::JenkinsBuildParamSerialize;
@@ -112,13 +113,63 @@ pub struct JenkinsJobBuilds {
   pub builds: Vec<JenkinsBuildSummary>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JenkinsBuildDetail {
+  pub number: u64,
+  pub url: String,
+  pub building: bool,
+  pub result: Option<String>,
+  pub timestamp: u64,
+  pub duration: u64,
+  pub display_name: Option<String>,
+  pub actions: Vec<JenkinsBuildDetailAction>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JenkinsBuildDetailAction {
+  #[serde(alias = "_class")]
+  pub class: Option<String>,
+  pub causes: Option<Vec<JenkinsBuildDetailCause>>,
+  pub last_built_revision: Option<JenkinsBuildDetailRevision>,
+  pub remote_urls: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JenkinsBuildDetailCause {
+  #[serde(alias = "_class")]
+  pub class: Option<String>,
+  pub short_description: Option<String>,
+  pub user_id: Option<String>,
+  pub user_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JenkinsBuildDetailRevision {
+  pub sha1: Option<String>,
+  pub branch: Option<Vec<JenkinsBuildDetailBranch>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JenkinsBuildDetailBranch {
+  pub name: Option<String>,
+  pub sha1: Option<String>,
+}
+
 async fn to_buffered_response(
   r: reqwest::Response,
 ) -> Result<BufferedResponse, error::AppError> {
   Ok(BufferedResponse {
     headers: r.headers().clone(),
     status: r.status(),
-    text: r.text().await.map_err(error::AppError::JenkinsEnqueue)?,
+    text: r
+      .text()
+      .await
+      .map_err(|e| error::AppError::JenkinsEnqueue(e.into()))?,
   })
 }
 
@@ -129,19 +180,23 @@ pub fn params_to_query_params(
 }
 
 // Returns the link to the queue item.
-pub async fn build_enqueue<'a>(
-  config: &'a cli::CliValid,
+pub async fn build_enqueue(
+  client: &ClientWithMiddleware,
+  server: &ConfigServer,
+  job: &str,
+  params: &HashMap<String, String>,
 ) -> Result<String, error::AppError> {
   let url = format!(
     "{}/job/{}/buildWithParameters?{}",
-    config.server.host_url,
-    config.job,
-    params_to_query_params(&config.params)?,
+    server.host_url,
+    job,
+    params_to_query_params(params)?,
   );
   debug!("Enqueueing at '{}'", url);
-  trace!("Using token {}", config.server.token);
+  trace!("Using token {}", server.token);
   let response = jenkins_request(
-    config,
+    client,
+    server,
     reqwest::Method::POST,
     // I reckon this can't be borrowed because it's going into a Future.
     url.clone(),
@@ -248,7 +303,8 @@ fn parse_why(why: &String) -> Result<u64, error::AppError> {
 // Uses waiting period to poll for the queue item's state.  Returns the build
 // URL and build number once the item leaves the queue.
 pub fn build_queue_item_poll<'a>(
-  config: &'a cli::CliValid,
+  client: &'a ClientWithMiddleware,
+  server: &'a ConfigServer,
   url: String,
 ) -> std::pin::Pin<
   Box<
@@ -258,11 +314,11 @@ pub fn build_queue_item_poll<'a>(
   >,
 > {
   async move {
-    let item = build_queue_item_get(config, url.clone()).await?;
+    let item = build_queue_item_get(client, server, url.clone()).await?;
     match parse_item(&item)? {
       Left(expires_millis) => {
         std::thread::sleep(std::time::Duration::from_millis(expires_millis));
-        build_queue_item_poll(config, url).await
+        build_queue_item_poll(client, server, url).await
       }
       Right((build_url, build_number)) => Ok((build_url, build_number)),
     }
@@ -271,11 +327,13 @@ pub fn build_queue_item_poll<'a>(
 }
 
 pub async fn build_queue_item_get<'a>(
-  config: &'a cli::CliValid,
+  client: &'a ClientWithMiddleware,
+  server: &'a ConfigServer,
   url: String,
 ) -> Result<JenkinsQueueItem, error::AppError> {
   let response = jenkins_request(
-    config,
+    client,
+    server,
     reqwest::Method::GET,
     // See https://issues.jenkins.io/browse/JENKINS-45218 which indicates
     // the URL needs an additional "/api/<format>" suffix to work.
@@ -295,7 +353,8 @@ pub async fn build_queue_item_get<'a>(
 }
 
 pub async fn build_log_stream(
-  config: &cli::CliValid,
+  client: &ClientWithMiddleware,
+  server: &ConfigServer,
   url: String,
   mut start_pos: u64,
   build_number: u64,
@@ -303,7 +362,8 @@ pub async fn build_log_stream(
 ) -> Result<(), error::AppError> {
   loop {
     let response = jenkins_request(
-      config,
+      client,
+      server,
       reqwest::Method::GET,
       format!("{}logText/progressiveText?start={}", url, start_pos),
     )
@@ -361,20 +421,58 @@ fn prefixed_write(chunk: &[u8], prefix: &str) -> Result<(), error::AppError> {
 }
 
 pub async fn jenkins_job_builds(
-  config: &cli::CliValid,
+  client: &ClientWithMiddleware,
+  server: &ConfigServer,
+  job: &str,
 ) -> Result<JenkinsJobBuilds, error::AppError> {
   let url = format!(
     "{}/job/{}/api/json?tree=builds[number,url,result,building]{{0,20}}",
-    config.server.host_url, config.job,
+    server.host_url, job,
   );
-  let response = jenkins_request(config, reqwest::Method::GET, url)
+  let response = jenkins_request(client, server, reqwest::Method::GET, url)
     .await
     .map_err(error::AppError::JenkinsJobBuildsRequest)?;
   let text = response
     .text()
     .await
-    .map_err(error::AppError::JenkinsJobBuildsRequest)?;
+    .map_err(|e| error::AppError::JenkinsJobBuildsRequest(e.into()))?;
   serde_json::from_str(&text).map_err(error::AppError::JenkinsJobBuildsDeserialize)
+}
+
+pub async fn build_detail_get(
+  client: &ClientWithMiddleware,
+  server: &ConfigServer,
+  job: &str,
+  build_number: u64,
+) -> Result<JenkinsBuildDetail, AppError> {
+  let url = format!(
+    "{}/job/{}/{}/api/json",
+    server.host_url, job, build_number,
+  );
+  let response = jenkins_request(client, server, reqwest::Method::GET, url)
+    .await
+    .map_err(AppError::JenkinsBuildDetailRequest)?;
+  let text = response
+    .text()
+    .await
+    .map_err(|e| AppError::JenkinsBuildDetailRequest(e.into()))?;
+  serde_json::from_str(&text).map_err(AppError::JenkinsBuildDetailDeserialize)
+}
+
+pub async fn build_log_fetch(
+  client: &ClientWithMiddleware,
+  server: &ConfigServer,
+  job: &str,
+  build_number: u64,
+) -> Result<String, AppError> {
+  let url = format!(
+    "{}/job/{}/{}/consoleText",
+    server.host_url, job, build_number,
+  );
+  let response = jenkins_request(client, server, reqwest::Method::GET, url)
+    .await
+    .map_err(AppError::JenkinsBuildLogFetch)?;
+  response.text().await.map_err(AppError::JenkinsBuildLogRead)
 }
 
 pub fn jenkins_result_to_status(result: Option<&str>) -> BuildStatus {
@@ -407,14 +505,15 @@ where
     .map_err(|_| error::AppError::JenkinsBuildParseTextSize)
 }
 
-async fn jenkins_request<'a>(
-  config: &'a cli::CliValid,
+async fn jenkins_request(
+  client: &ClientWithMiddleware,
+  server: &ConfigServer,
   method: reqwest::Method,
   url: String,
-) -> Result<reqwest::Response, reqwest::Error> {
-  reqwest::Client::new()
+) -> Result<reqwest::Response, reqwest_middleware::Error> {
+  client
     .request(method, url)
-    .basic_auth(&config.server.username, Some(&config.server.token))
+    .basic_auth(&server.username, Some(&server.token))
     .send()
     .await
 }
