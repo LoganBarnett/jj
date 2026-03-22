@@ -47,12 +47,23 @@ pub struct CliRaw {
     number_of_values = 1
   )]
   pub params: Vec<(String, String)>,
+  /// Watch the job continuously; stream logs from every active build until
+  /// cancelled with Ctrl+C.
+  #[arg(long)]
+  pub follow: bool,
+  /// Adopt any currently-running build (or wait for the next one to start),
+  /// stream its log, then exit with the build's result code.
+  #[arg(long, conflicts_with = "follow")]
+  pub follow_next: bool,
 }
 
+#[derive(Clone)]
 pub struct CliValid {
   pub job: String,
   pub params: HashMap<String, String>,
   pub server: config::ConfigServer,
+  pub follow: bool,
+  pub follow_next: bool,
 }
 
 pub fn cli_validate(
@@ -69,6 +80,8 @@ pub fn cli_validate(
       job: cli.job.clone(),
       params: cli.params.iter().cloned().collect(),
       server: server.clone(),
+      follow: cli.follow,
+      follow_next: cli.follow_next,
     }),
     None => Err(error::AppError::CliConfigServerMissing(server_name)),
   }

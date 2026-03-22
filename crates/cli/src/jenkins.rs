@@ -15,6 +15,8 @@
 use either::{Either, Left, Right};
 use futures::FutureExt;
 use futures::StreamExt;
+use hash_color_lib::HashColorizer;
+use jj_lib::build::BuildStatus;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Write;
@@ -95,6 +97,21 @@ pub struct JenkinsQueueItemTask {
   pub color: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JenkinsBuildSummary {
+  pub number: u64,
+  pub url: String,
+  pub building: bool,
+  // "SUCCESS" | "FAILURE" | "ABORTED" | "UNSTABLE" | null while building.
+  pub result: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JenkinsJobBuilds {
+  pub builds: Vec<JenkinsBuildSummary>,
+}
+
 async fn to_buffered_response(
   r: reqwest::Response,
 ) -> Result<BufferedResponse, error::AppError> {
@@ -152,9 +169,9 @@ pub async fn build_enqueue<'a>(
 
 fn parse_item(
   item: &JenkinsQueueItem,
-) -> Result<Either<u64, String>, error::AppError> {
+) -> Result<Either<u64, (String, u64)>, error::AppError> {
   match &item.executable {
-    Some(ex) => Ok(Right(ex.url.clone())),
+    Some(ex) => Ok(Right((ex.url.clone(), ex.number))),
     None => {
       let why = item.why.as_ref().ok_or_else(|| {
         error::AppError::JenkinsEnqueueDeserialize(format!(
@@ -228,12 +245,17 @@ fn parse_why(why: &String) -> Result<u64, error::AppError> {
   }
 }
 
-// Uses waiting period to poll for the queue item's state.
+// Uses waiting period to poll for the queue item's state.  Returns the build
+// URL and build number once the item leaves the queue.
 pub fn build_queue_item_poll<'a>(
   config: &'a cli::CliValid,
   url: String,
 ) -> std::pin::Pin<
-  Box<dyn std::future::Future<Output = Result<String, error::AppError>> + Send + 'a>,
+  Box<
+    dyn std::future::Future<Output = Result<(String, u64), error::AppError>>
+      + Send
+      + 'a,
+  >,
 > {
   async move {
     let item = build_queue_item_get(config, url.clone()).await?;
@@ -242,7 +264,7 @@ pub fn build_queue_item_poll<'a>(
         std::thread::sleep(std::time::Duration::from_millis(expires_millis));
         build_queue_item_poll(config, url).await
       }
-      Right(url) => Ok(url),
+      Right((build_url, build_number)) => Ok((build_url, build_number)),
     }
   }
   .boxed()
@@ -272,14 +294,14 @@ pub async fn build_queue_item_get<'a>(
     .map_err(error::AppError::JenkinsDeserialize)
 }
 
-pub fn build_log_stream<'a>(
-  config: &'a cli::CliValid,
+pub async fn build_log_stream(
+  config: &cli::CliValid,
   url: String,
-  start_pos: u64,
-) -> std::pin::Pin<
-  Box<dyn std::future::Future<Output = Result<(), error::AppError>> + Send + 'a>,
-> {
-  async move {
+  mut start_pos: u64,
+  build_number: u64,
+  colorizer: &HashColorizer,
+) -> Result<(), error::AppError> {
+  loop {
     let response = jenkins_request(
       config,
       reqwest::Method::GET,
@@ -292,8 +314,7 @@ pub fn build_log_stream<'a>(
       "Headers for stream: \n{}",
       headers_to_string(response.headers().clone())?,
     );
-    // This needs to happen before stdout_write lest we anger the borrow
-    // checker.
+    // Headers must be parsed before the response body is consumed.
     let offset = header_parse::<_, u64>("x-text-size", "0", &response)?;
     let more = header_parse::<_, bool>(
       "x-more-data",
@@ -303,38 +324,68 @@ pub fn build_log_stream<'a>(
     )?;
     debug!("Found offset of {}.", offset);
     debug!("Need more? {}", more);
-    stdout_write(response)?;
+    let prefix =
+      format!("[{}] ", colorizer.colorize(&build_number.to_string()));
+    stream_with_prefix(response, &prefix).await?;
 
     if !more {
-      Ok(())
-    } else {
-      build_log_stream(config, url, offset).await
+      return Ok(());
     }
+    start_pos = offset;
   }
-  .boxed()
 }
 
-fn stdout_write(response: reqwest::Response) -> Result<(), error::AppError> {
+async fn stream_with_prefix(
+  response: reqwest::Response,
+  prefix: &str,
+) -> Result<(), error::AppError> {
   let mut stream = response.bytes_stream();
+  while let Some(chunk) = stream.next().await {
+    let bytes = chunk.map_err(error::AppError::JenkinsBuildResponseRead)?;
+    prefixed_write(&bytes, prefix)?;
+  }
+  Ok(())
+}
+
+fn prefixed_write(chunk: &[u8], prefix: &str) -> Result<(), error::AppError> {
+  let text = String::from_utf8_lossy(chunk);
   let stdout = std::io::stdout();
   let mut stdout_locked = stdout.lock();
-
-  futures::executor::block_on(async move {
-    // It would be great to just connect these streams together via some pipe
-    // operation, but that seems beyond current capability.
-    let mut result = Ok(());
-    while let Some(chunk) = stream.next().await {
-      result = chunk
-        .map_err(error::AppError::JenkinsBuildResponseRead)
-        .and_then(|c| {
-          stdout_locked
-            .write(&c)
-            .map_err(error::AppError::JenkinsBuildOutput)
-        })
-        .map(|_| ())
+  for line in text.split('\n') {
+    if !line.is_empty() {
+      writeln!(stdout_locked, "{}{}", prefix, line)
+        .map_err(error::AppError::JenkinsBuildOutput)?;
     }
-    result
-  })
+  }
+  Ok(())
+}
+
+pub async fn jenkins_job_builds(
+  config: &cli::CliValid,
+) -> Result<JenkinsJobBuilds, error::AppError> {
+  let url = format!(
+    "{}/job/{}/api/json?tree=builds[number,url,result,building]{{0,20}}",
+    config.server.host_url, config.job,
+  );
+  let response = jenkins_request(config, reqwest::Method::GET, url)
+    .await
+    .map_err(error::AppError::JenkinsJobBuildsRequest)?;
+  let text = response
+    .text()
+    .await
+    .map_err(error::AppError::JenkinsJobBuildsRequest)?;
+  serde_json::from_str(&text).map_err(error::AppError::JenkinsJobBuildsDeserialize)
+}
+
+pub fn jenkins_result_to_status(result: Option<&str>) -> BuildStatus {
+  match result {
+    Some("SUCCESS") => BuildStatus::Success,
+    Some("FAILURE") => BuildStatus::Failure,
+    Some("ABORTED") => BuildStatus::Aborted,
+    Some("UNSTABLE") => BuildStatus::Unstable,
+    None => BuildStatus::Running,
+    Some(other) => BuildStatus::Unknown(other.to_string()),
+  }
 }
 
 fn header_parse<'a, K, V>(

@@ -32,4 +32,8 @@ pub enum AppError {
   JenkinsEnqueueWait(String),
   #[error("Failed to parse response header value: {0}")]
   JenkinsHeader(reqwest::header::ToStrError),
+  #[error("Failed to request Jenkins job builds: {0}")]
+  JenkinsJobBuildsRequest(reqwest::Error),
+  #[error("Failed to deserialize Jenkins job builds response: {0}")]
+  JenkinsJobBuildsDeserialize(serde_json::Error),
 }

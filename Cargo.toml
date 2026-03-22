@@ -11,6 +11,8 @@ edition = "2021"
 authors = ["Logan Barnett <logustus@gmail.com>"]
 
 [workspace.dependencies]
+tracing-journald = "0.3"
+hash-color-lib = { path = "../hash-color/crates/lib" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 tap = "1.0"
@@ -29,6 +31,11 @@ url = "2"
 serde_url_params = "0.2"
 lazy_static = "1.5"
 jj-lib = { path = "crates/lib" }
+assert_cmd = "2"
+predicates = "3"
+serial_test = "3"
+tempfile = "3"
+libc = "0.2"
 
 [profile.dev]
 # Prevent large target/debug directories.

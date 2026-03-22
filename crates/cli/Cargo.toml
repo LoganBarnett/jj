@@ -9,7 +9,11 @@ name = "jj"
 path = "src/main.rs"
 
 [dependencies]
+hash-color-lib = { workspace = true }
 jj-lib = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+tracing-journald = { workspace = true }
 clap = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -27,3 +31,12 @@ bytes = { workspace = true }
 url = { workspace = true }
 serde_url_params = { workspace = true }
 lazy_static = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+serial_test = { workspace = true }
+tempfile = { workspace = true }
+
+[target.'cfg(unix)'.dev-dependencies]
+libc = { workspace = true }
