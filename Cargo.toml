@@ -13,7 +13,7 @@ license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
 tracing-journald = "0.3"
-hash-color-lib = { git = "ssh://git@gitea.proton:2222/logan/hash-color.git" }
+hash-color-lib = { git = "https://github.com/LoganBarnett/hash-color" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 tap = "1.0"
