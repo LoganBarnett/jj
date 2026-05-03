@@ -8,15 +8,21 @@
     crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, rust-overlay, crane }@inputs: let
+  outputs = {
+    self,
+    nixpkgs,
+    rust-overlay,
+    crane,
+  } @ inputs: let
     forAllSystems = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed;
     overlays = [
       (import rust-overlay)
     ];
-    pkgsFor = system: import nixpkgs {
-      inherit system;
-      overlays = overlays;
-    };
+    pkgsFor = system:
+      import nixpkgs {
+        inherit system;
+        overlays = overlays;
+      };
 
     workspaceCrates = {
       cli = {
@@ -45,17 +51,23 @@
       pkgs.openssl
       pkgs.pkg-config
       pkgs.python3
+      pkgs.treefmt
+      pkgs.alejandra
     ];
 
     # Build a directory of symlinks to plugin .jpi files from the attrset
     # produced by jenkins/plugins.nix.  Mirrors the NixOS jenkins module's
     # plugin installation logic for non-NixOS hosts.
-    jenkinsPluginsDir = pkgs:
-      let plugins = import ./jenkins/plugins.nix { inherit (pkgs) fetchurl stdenv; };
-      in pkgs.linkFarm "jenkins-plugins"
-           (pkgs.lib.mapAttrsToList
-             (name: drv: { name = "${name}.jpi"; path = drv; })
-             plugins);
+    jenkinsPluginsDir = pkgs: let
+      plugins = import ./jenkins/plugins.nix {inherit (pkgs) fetchurl stdenv;};
+    in
+      pkgs.linkFarm "jenkins-plugins"
+      (pkgs.lib.mapAttrsToList
+        (name: drv: {
+          name = "${name}.jpi";
+          path = drv;
+        })
+        plugins);
 
     shellHook = pkgs: ''
       export JENKINS_HOME=$PWD/runner-homes/jenkins
@@ -68,10 +80,23 @@
       for f in ${jenkinsPluginsDir pkgs}/*.jpi; do
         ln -sf "$f" "$JENKINS_HOME/plugins/"
       done
+      # Symlink cargo-husky hooks into .git/hooks/ using paths relative
+      # to .git/hooks/ so the repo stays valid after moves or copies.
+      _git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+      if [ -n "$_git_root" ] && [ "$(pwd)" = "$_git_root" ] && [ -d ".cargo-husky/hooks" ]; then
+        for _hook in .cargo-husky/hooks/*; do
+          [ -x "$_hook" ] || continue
+          _name=$(basename "$_hook")
+          _dest="$_git_root/.git/hooks/$_name"
+          _target=$(${pkgs.coreutils}/bin/realpath --relative-to="$_git_root/.git/hooks" "$(pwd)/$_hook")
+          if [ ! -L "$_dest" ] || [ "$(readlink "$_dest")" != "$_target" ]; then
+            ln -sf "$_target" "$_dest"
+            echo "Installed git hook: $_name -> $_target"
+          fi
+        done
+      fi
     '';
-
   in {
-
     devShells = forAllSystems (system: let
       pkgs = pkgsFor system;
     in {
@@ -83,16 +108,19 @@
 
     packages = forAllSystems (system: let
       pkgs = pkgsFor system;
-      craneLib = (crane.mkLib pkgs).overrideToolchain
+      craneLib =
+        (crane.mkLib pkgs).overrideToolchain
         (p: p.rust-bin.stable.latest.default);
 
       commonArgs = {
         src = craneLib.cleanCargoSource ./.;
-        buildInputs = with pkgs; [
-          openssl
-        ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin; [
-          libiconv
-        ]);
+        buildInputs = with pkgs;
+          [
+            openssl
+          ]
+          ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin; [
+            libiconv
+          ]);
         nativeBuildInputs = with pkgs; [
           pkg-config
         ];
@@ -106,26 +134,34 @@
       # per-crate file exists under nix/packages/, it is used instead of
       # the generic crane build; this lets individual crates carry custom
       # build options without cluttering the top-level flake.
-      cratePackages = pkgs.lib.mapAttrs (key: crate:
-        let pkgFile = ./. + "/nix/packages/${key}.nix";
-        in if builtins.pathExists pkgFile
-          then import pkgFile { inherit craneLib commonArgs; }
-          else craneLib.buildPackage (commonArgs // {
-            pname = crate.name;
-            cargoExtraArgs = "-p ${crate.name}";
-          })
-      ) workspaceCrates;
-
-    in cratePackages // {
-      default = craneLib.buildPackage (commonArgs // { pname = "jj"; });
-    });
+      cratePackages =
+        pkgs.lib.mapAttrs (
+          key: crate: let
+            pkgFile = ./. + "/nix/packages/${key}.nix";
+          in
+            if builtins.pathExists pkgFile
+            then import pkgFile {inherit craneLib commonArgs;}
+            else
+              craneLib.buildPackage (commonArgs
+                // {
+                  pname = crate.name;
+                  cargoExtraArgs = "-p ${crate.name}";
+                })
+        )
+        workspaceCrates;
+    in
+      cratePackages
+      // {
+        default = craneLib.buildPackage (commonArgs // {pname = "jj";});
+      });
 
     apps = forAllSystems (system: let
       pkgs = pkgsFor system;
-    in pkgs.lib.mapAttrs (key: crate: {
-      type = "app";
-      program = "${self.packages.${system}.${key}}/bin/${crate.binary}";
-    }) workspaceCrates);
-
+    in
+      pkgs.lib.mapAttrs (key: crate: {
+        type = "app";
+        program = "${self.packages.${system}.${key}}/bin/${crate.binary}";
+      })
+      workspaceCrates);
   };
 }
