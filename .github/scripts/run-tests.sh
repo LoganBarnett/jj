@@ -69,4 +69,4 @@ export JENKINS_URL=http://localhost:11990
 export JENKINS_USER=admin
 export JENKINS_TOKEN="$API_TOKEN"
 
-cargo test --test integration -- --test-threads=1
+cargo test --test integration_test -- --test-threads=1

@@ -3,12 +3,20 @@ name = "jj-lib"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-tracing = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }
+# Supplies the shared LogLevel/LogFormat models that logging.rs re-exports so
+# the CLI crate consumes them through jj-lib.
+rust-template-foundation = { workspace = true }
+# Enables method chaining and reduces superfluous local variables that only
+# exist to name intermediate results.  Prefer .tap() over temporary variables
+# when it improves readability.
 tap = { workspace = true }
 
 [dev-dependencies]
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
+
+[lints]
+workspace = true

@@ -1,7 +1,14 @@
 # Crane-based derivation for the jj binary.
-# Called from flake.nix with: import ./cli.nix { inherit craneLib commonArgs; }
-{ craneLib, commonArgs }:
-craneLib.buildPackage (commonArgs // {
-  pname = "jj";
-  cargoExtraArgs = "-p jj";
-})
+# Imported by foundation.lib.mkRustPackages as the per-crate override for the
+# `cli` key, with { craneLib, commonArgs, pkgs }.  commonArgs already carries
+# the shared dependency artifacts and per-crate test scope.
+{
+  craneLib,
+  commonArgs,
+  pkgs,
+}:
+craneLib.buildPackage (commonArgs
+  // {
+    pname = "jj";
+    cargoExtraArgs = "-p jj";
+  })

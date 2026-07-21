@@ -3,35 +3,42 @@ name = "jj"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Run Jenkins jobs from the command line."
+publish = []
 
 [[bin]]
 name = "jj"
 path = "src/main.rs"
 
 [dependencies]
+# Drives the whole CLI lifecycle: the "cli" feature supplies the MergeConfig
+# derive that generates Config's CliRaw/ConfigFileRaw, the #[foundation_main]
+# entry macro, and CLI logging init.
+rust-template-foundation = { workspace = true, features = ["cli"] }
 hash-color-lib = { workspace = true }
 jj-lib = { workspace = true }
-
-[target.'cfg(unix)'.dependencies]
-tracing-journald = { workspace = true }
 clap = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
 thiserror = { workspace = true }
-tap = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
-regex = { workspace = true }
+# Compile-time-validated queue-message regexes; see the workspace comment.
+lazy-regex = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 bytes = { workspace = true }
 url = { workspace = true }
 serde_url_params = { workspace = true }
-lazy_static = { workspace = true }
+# Enables method chaining and reduces superfluous local variables that only
+# exist to name intermediate results.  Prefer .tap() over temporary variables
+# when it improves readability.
+tap = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -41,3 +48,6 @@ tempfile = { workspace = true }
 
 [target.'cfg(unix)'.dev-dependencies]
 libc = { workspace = true }
+
+[lints]
+workspace = true

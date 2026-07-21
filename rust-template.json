@@ -1,3 +1,11 @@
 {
-  "template_sync_hashes": ["b7be2ef9d3bf62a91ee0d8b1184bc5869a7ed1ac"]
+  "template_sync_hashes": [
+    "b7be2ef9d3bf62a91ee0d8b1184bc5869a7ed1ac",
+    "65f9706d19e13c908438b112be318f9bf0f90125"
+  ],
+  "windows-msvc": false,
+  "workspaces": {
+    "lib": { "release-binary": false },
+    "cli": { "release-binary": true }
+  }
 }
