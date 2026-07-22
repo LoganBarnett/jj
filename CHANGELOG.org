@@ -38,3 +38,5 @@ automatically.
    ~--log-format~, and ~--config~ flags are unchanged.
 2. CLI logs now go to stderr only; the previous journald routing on Unix is
    gone.  Pipe stderr to the journal at the service layer if you need it.
+*** Maintenance
+1. Bump DeterminateSystems/nix-installer-action from 8 to 22 (https://github.com/LoganBarnett/jj/pull/3)
