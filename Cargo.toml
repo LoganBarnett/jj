@@ -32,7 +32,7 @@ tokio = { version = "1", features = ["full"] }
 # (rustls-tls-native-roots) replaces the default OpenSSL backend so the musl and
 # cross-compiled release binaries build without a system OpenSSL to link.
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls-native-roots"] }
-reqwest-middleware = "0.4"
+reqwest-middleware = "0.5"
 # Compile-time-validated regex literals (regex! expands to a cached &'static
 # Regex), so queue-message parsing needs no runtime Regex::new to unwrap.
 lazy-regex = "3"
