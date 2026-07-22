@@ -30,6 +30,9 @@ struct JenkinsTest {
   // Owns the temp directory; dropping this struct removes it.
   _dir: TempDir,
   home: String,
+  // The temp .config dir, exported as XDG_CONFIG_HOME so jj's config discovery
+  // finds the test config regardless of the runner's own XDG_CONFIG_HOME.
+  config_home: String,
 }
 
 impl JenkinsTest {
@@ -41,7 +44,8 @@ impl JenkinsTest {
     let token = std::env::var("JENKINS_TOKEN").ok()?;
 
     let dir = tempfile::tempdir().ok()?;
-    let config_dir = dir.path().join(".config").join("jj");
+    let config_home = dir.path().join(".config");
+    let config_dir = config_home.join("jj");
     std::fs::create_dir_all(&config_dir).ok()?;
 
     // Write the token to a file so token_eval reads it via `cat` without
@@ -60,13 +64,19 @@ impl JenkinsTest {
     std::fs::write(config_dir.join("config.toml"), config).ok()?;
 
     let home = dir.path().to_str()?.to_string();
-    Some(JenkinsTest { _dir: dir, home })
+    let config_home = config_home.to_str()?.to_string();
+    Some(JenkinsTest {
+      _dir: dir,
+      home,
+      config_home,
+    })
   }
 
   // assert_cmd Command for assertions on exit code and stdout.
   fn cmd(&self) -> Command {
     let mut cmd = Command::cargo_bin("jj").unwrap();
     cmd.env("HOME", &self.home);
+    cmd.env("XDG_CONFIG_HOME", &self.config_home);
     cmd
   }
 
@@ -75,6 +85,7 @@ impl JenkinsTest {
   fn std_cmd(&self) -> StdCommand {
     let mut cmd = StdCommand::cargo_bin("jj").unwrap();
     cmd.env("HOME", &self.home);
+    cmd.env("XDG_CONFIG_HOME", &self.config_home);
     cmd
   }
 }
@@ -94,7 +105,7 @@ fn follow_next_success() {
   // catch it while building=true.
   let mut background = jt
     .std_cmd()
-    .args(["sleep-job", "-P", "duration=12"])
+    .args(["job", "run", "sleep-job", "-P", "duration=12"])
     .stdout(std::process::Stdio::null())
     .stderr(std::process::Stdio::null())
     .spawn()
@@ -104,7 +115,7 @@ fn follow_next_success() {
   std::thread::sleep(Duration::from_secs(5));
 
   jt.cmd()
-    .args(["sleep-job", "--follow-next"])
+    .args(["job", "follow", "sleep-job", "--once"])
     .timeout(Duration::from_secs(60))
     .assert()
     .success()
@@ -123,6 +134,7 @@ fn follow_next_failure() {
     return;
   };
   let home = jt.home.clone();
+  let config_home = jt.config_home.clone();
 
   // --follow-next runs in a thread so we can trigger the build from the main
   // thread while it waits.
@@ -130,7 +142,8 @@ fn follow_next_failure() {
     StdCommand::cargo_bin("jj")
       .unwrap()
       .env("HOME", &home)
-      .args(["fail-job", "--follow-next"])
+      .env("XDG_CONFIG_HOME", &config_home)
+      .args(["job", "follow", "fail-job", "--once"])
       .status()
       .expect("run --follow-next for fail-job")
   });
@@ -142,7 +155,7 @@ fn follow_next_failure() {
   // enqueue-path jj process and the --follow-next thread will stream it.
   let mut trigger = jt
     .std_cmd()
-    .arg("fail-job")
+    .args(["job", "run", "fail-job"])
     .stdout(std::process::Stdio::null())
     .stderr(std::process::Stdio::null())
     .spawn()
@@ -162,12 +175,14 @@ fn follow_next_unstable() {
     return;
   };
   let home = jt.home.clone();
+  let config_home = jt.config_home.clone();
 
   let handle = std::thread::spawn(move || {
     StdCommand::cargo_bin("jj")
       .unwrap()
       .env("HOME", &home)
-      .args(["unstable-job", "--follow-next"])
+      .env("XDG_CONFIG_HOME", &config_home)
+      .args(["job", "follow", "unstable-job", "--once"])
       .status()
       .expect("run --follow-next for unstable-job")
   });
@@ -176,7 +191,7 @@ fn follow_next_unstable() {
 
   let mut trigger = jt
     .std_cmd()
-    .arg("unstable-job")
+    .args(["job", "run", "unstable-job"])
     .stdout(std::process::Stdio::null())
     .stderr(std::process::Stdio::null())
     .spawn()
@@ -201,7 +216,7 @@ fn follow_exits_on_sigint() {
 
   let mut child = jt
     .std_cmd()
-    .args(["sleep-job", "--follow"])
+    .args(["job", "follow", "sleep-job"])
     .stdout(std::process::Stdio::null())
     .stderr(std::process::Stdio::null())
     .spawn()

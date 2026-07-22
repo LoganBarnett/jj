@@ -49,6 +49,18 @@
           "rustfmt"
         ];
       };
+      # nixpkgs pins Jenkins one LTS point release behind the stable update
+      # center that jenkins/plugins.nix is generated from, so the pinned plugins
+      # (which require >= 2.532) refuse to load on nixpkgs' 2.528.1.  Pin the
+      # core to the stable LTS the plugins target so the two stay in lockstep;
+      # bump this together with a plugins.nix regeneration.
+      jenkins = pkgs.jenkins.overrideAttrs (_: rec {
+        version = "2.568.1";
+        src = pkgs.fetchurl {
+          url = "https://updates.jenkins.io/download/war/${version}/jenkins.war";
+          hash = "sha256-WPJPOWX773cIYp++FY1RvxOP/Vd8rbyGtGNn6K0L64M=";
+        };
+      });
       # Workspace binaries this project ships.  jj is CLI-only; the lib crate
       # produces no binary and is not listed here.
       crates = {
@@ -164,7 +176,7 @@
             pkgs.cargo-sweep
             # Local Jenkins for exercising the CLI (jdk runs it).
             pkgs.jdk
-            pkgs.jenkins
+            jenkins
             # jq and python3 back the Jenkins helper scripts (.github/scripts,
             # jenkins/).
             pkgs.jq
@@ -180,6 +192,9 @@
           shellHook = ''
             export JENKINS_HOME=$PWD/runner-homes/jenkins
             export CASC_JENKINS_CONFIG=$PWD/jenkins/casc
+            # nixpkgs ships Jenkins as a WAR (there is no `jenkins` command), so
+            # the test runner starts it with `java -jar "$JENKINS_WAR"`.
+            export JENKINS_WAR="${jenkins}/webapps/jenkins.war"
             # Disable the first-run setup wizard; JCasC handles all configuration.
             export JAVA_OPTS="''${JAVA_OPTS:-} -Djenkins.install.runSetupWizard=false"
             mkdir -p "$JENKINS_HOME/plugins"
