@@ -21,13 +21,16 @@ automatically.
 
 ** Upcoming
 *** Added
+*** Fixes
+*** Breaking
+** v0.2.0
+*** Added
 1. Nothing you must act on: jj now consumes the rust-template foundation library
    (config resolution, logging, and the ~#[foundation_main]~ entry point) and
    the template's shared CI, publish, release-binary, branch-protection, and
    dependabot workflows, plus cross-compiled macOS/Windows package outputs, a
    ~ci~ dev shell, and the workspace clippy-lints wiring that enforces the
    no-~unwrap~ and combinator-preference conventions.
-*** Fixes
 *** Breaking
 1. Environment-variable names are now app-prefixed: use ~jj_log_level~,
    ~jj_log_format~, and ~jj_config~ in place of the former ~LOG_LEVEL~,
