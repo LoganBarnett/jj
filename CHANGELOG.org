@@ -15,11 +15,23 @@ document what has changed in a very human readable way, fill this document out
 as part of the changes you are making.
 
 Add human descriptions of your changes in all that apply for =Breaking=,
-=Additions=, and =Fixes= sub-sections.  Do this only under the =Upcoming=
-section.  When your changes are merged, these will be promoted to the stamped
-version automatically.
+=Added=, and =Fixes= sub-sections.  Do this only under the =Upcoming= section.
+When your changes are merged, these will be promoted to the stamped version
+automatically.
 
 ** Upcoming
-*** Breaking
-*** Additions
+*** Added
+1. Nothing you must act on: jj now consumes the rust-template foundation library
+   (config resolution, logging, and the ~#[foundation_main]~ entry point) and
+   the template's shared CI, publish, release-binary, branch-protection, and
+   dependabot workflows, plus cross-compiled macOS/Windows package outputs, a
+   ~ci~ dev shell, and the workspace clippy-lints wiring that enforces the
+   no-~unwrap~ and combinator-preference conventions.
 *** Fixes
+*** Breaking
+1. Environment-variable names are now app-prefixed: use ~jj_log_level~,
+   ~jj_log_format~, and ~jj_config~ in place of the former ~LOG_LEVEL~,
+   ~LOG_FORMAT~, and ~JJ_CONFIG~.  The ~--server~, ~--log-level~,
+   ~--log-format~, and ~--config~ flags are unchanged.
+2. CLI logs now go to stderr only; the previous journald routing on Unix is
+   gone.  Pipe stderr to the journal at the service layer if you need it.

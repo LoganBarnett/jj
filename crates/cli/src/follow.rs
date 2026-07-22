@@ -19,7 +19,9 @@ fn build_colorizer() -> HashColorizer {
 // Adopts the highest-numbered currently-running build, or waits for the next
 // build to start.  Streams its log to completion, then exits with the build's
 // result code.
-pub async fn follow_once(config: &CliJobFollowValid) -> Result<BuildExitCode, AppError> {
+pub async fn follow_once(
+  config: &CliJobFollowValid,
+) -> Result<BuildExitCode, AppError> {
   let colorizer = build_colorizer();
 
   let builds =

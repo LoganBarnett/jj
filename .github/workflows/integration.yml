@@ -16,25 +16,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v8
+      # Install Nix and restore/save the /nix store cache via the template's
+      # blessed composite action.  It replaces the shut-down Determinate
+      # nix-installer + magic-nix-cache pair this job used to carry by hand;
+      # consuming it at @main means future nix-CI fixes reach jj without
+      # another hand-patch.  The 55 Jenkins plugin derivations land in the
+      # cached store.
+      - uses: LoganBarnett/rust-template/.github/actions/setup-nix@main
 
-        # Caches the Nix store between runs so the 55 Jenkins plugin
-        # derivations are not re-fetched on every push.
-      - name: Set up Nix binary cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
-
-        # Cache downloaded crate sources and compiled artifacts so incremental
-        # builds are fast after the first run.
-      - name: Cache Cargo artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+      # Caches ~/.cargo and target/ — orthogonal to the Nix store cache above.
+      - uses: Swatinem/rust-cache@v2
 
         # `nix develop --command` runs the dev-shell hook (which symlinks
         # Jenkins plugins and exports JENKINS_HOME / CASC_JENKINS_CONFIG /

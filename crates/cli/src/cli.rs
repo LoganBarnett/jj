@@ -2,7 +2,6 @@ use clap::{Parser, Subcommand};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use std::collections::HashMap;
 use std::error::Error;
-use std::path::PathBuf;
 
 use crate::config;
 use crate::error;
@@ -26,25 +25,7 @@ where
   Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
 
-#[derive(Parser, Debug)]
-#[command(name = "jj", about = "Run Jenkins jobs from the command line.")]
-pub struct CliRaw {
-  #[arg(short, long, default_value = "default")]
-  pub server: String,
-  /// Path to the configuration file (overrides default ~/.config/jj/config.toml)
-  #[arg(long, env = "JJ_CONFIG")]
-  pub config: Option<PathBuf>,
-  /// Log level (trace, debug, info, warn, error)
-  #[arg(long, env = "LOG_LEVEL")]
-  pub log_level: Option<String>,
-  /// Log format (text, json)
-  #[arg(long, env = "LOG_FORMAT")]
-  pub log_format: Option<String>,
-  #[command(subcommand)]
-  pub command: CliCommand,
-}
-
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum CliCommand {
   /// Manage and run Jenkins jobs
   Job(JobArgs),
@@ -52,13 +33,13 @@ pub enum CliCommand {
   Build(BuildArgs),
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 pub struct JobArgs {
   #[command(subcommand)]
   pub command: JobCommand,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum JobCommand {
   /// Enqueue a job run and stream its log to completion
   Run(JobRunArgs),
@@ -66,7 +47,7 @@ pub enum JobCommand {
   Follow(JobFollowArgs),
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 pub struct JobRunArgs {
   pub job: String,
   // number_of_values = 1 means --param must be repeated for each pair.
@@ -82,7 +63,7 @@ pub struct JobRunArgs {
   pub params: Vec<(String, String)>,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 pub struct JobFollowArgs {
   /// Adopt the next build and exit with its result code instead of watching
   /// continuously.
@@ -91,19 +72,19 @@ pub struct JobFollowArgs {
   pub job: String,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 pub struct BuildArgs {
   #[command(subcommand)]
   pub command: BuildCommand,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum BuildCommand {
   /// Show metadata and/or log for a specific build
   View(BuildViewArgs),
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 pub struct BuildViewArgs {
   pub job: String,
   pub build_number: u64,
@@ -146,11 +127,12 @@ fn resolve_server(
   config: &config::Config,
 ) -> Result<config::ConfigServer, error::AppError> {
   let name = if server_name == "default" {
-    config.default_server.clone()
+    config.registry.default_server.clone()
   } else {
     server_name.to_string()
   };
   config
+    .registry
     .servers
     .get(&name)
     .cloned()
@@ -162,12 +144,11 @@ fn build_client() -> ClientWithMiddleware {
 }
 
 pub fn cli_job_run_validate(
-  cli: &CliRaw,
-  args: &JobRunArgs,
   config: &config::Config,
+  args: &JobRunArgs,
 ) -> Result<CliJobRunValid, error::AppError> {
   Ok(CliJobRunValid {
-    server: resolve_server(&cli.server, config)?,
+    server: resolve_server(&config.server, config)?,
     client: build_client(),
     job: args.job.clone(),
     params: args.params.iter().cloned().collect(),
@@ -175,12 +156,11 @@ pub fn cli_job_run_validate(
 }
 
 pub fn cli_job_follow_validate(
-  cli: &CliRaw,
-  args: &JobFollowArgs,
   config: &config::Config,
+  args: &JobFollowArgs,
 ) -> Result<CliJobFollowValid, error::AppError> {
   Ok(CliJobFollowValid {
-    server: resolve_server(&cli.server, config)?,
+    server: resolve_server(&config.server, config)?,
     client: build_client(),
     job: args.job.clone(),
     once: args.once,
@@ -188,9 +168,8 @@ pub fn cli_job_follow_validate(
 }
 
 pub fn cli_build_view_validate(
-  cli: &CliRaw,
-  args: &BuildViewArgs,
   config: &config::Config,
+  args: &BuildViewArgs,
 ) -> Result<CliBuildViewValid, error::AppError> {
   // When neither flag is specified, show both metadata and log by default.
   let (show_metadata, show_log) = if !args.metadata && !args.log {
@@ -199,7 +178,7 @@ pub fn cli_build_view_validate(
     (args.metadata, args.log)
   };
   Ok(CliBuildViewValid {
-    server: resolve_server(&cli.server, config)?,
+    server: resolve_server(&config.server, config)?,
     client: build_client(),
     job: args.job.clone(),
     build_number: args.build_number,

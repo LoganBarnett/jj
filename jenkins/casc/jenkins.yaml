@@ -13,9 +13,11 @@ jenkins:
   authorizationStrategy:
     loggedInUsersCanDoAnything:
       allowAnonymousRead: false
+  # Newer Jenkins DefaultCrumbIssuer dropped the excludeClientIPFromCrumb
+  # attribute (the client IP is always excluded now), so the standard issuer
+  # takes no configuration.
   crumbIssuer:
-    standard:
-      excludeClientIPFromCrumb: false
+    standard: {}
 
 unclassified:
   location:

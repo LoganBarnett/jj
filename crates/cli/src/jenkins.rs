@@ -115,6 +115,9 @@ pub struct JenkinsJobBuilds {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+// Mirrors the Jenkins build-detail API response; some fields are retained for
+// documentation and future use rather than read today.
+#[allow(dead_code)]
 pub struct JenkinsBuildDetail {
   pub number: u64,
   pub url: String,
@@ -128,6 +131,8 @@ pub struct JenkinsBuildDetail {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+// Mirrors the Jenkins API; not all fields are read.
+#[allow(dead_code)]
 pub struct JenkinsBuildDetailAction {
   #[serde(alias = "_class")]
   pub class: Option<String>,
@@ -138,6 +143,8 @@ pub struct JenkinsBuildDetailAction {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+// Mirrors the Jenkins API; not all fields are read.
+#[allow(dead_code)]
 pub struct JenkinsBuildDetailCause {
   #[serde(alias = "_class")]
   pub class: Option<String>,
@@ -155,6 +162,8 @@ pub struct JenkinsBuildDetailRevision {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+// Mirrors the Jenkins API; not all fields are read.
+#[allow(dead_code)]
 pub struct JenkinsBuildDetailBranch {
   pub name: Option<String>,
   pub sha1: Option<String>,
@@ -225,40 +234,34 @@ pub async fn build_enqueue(
 fn parse_item(
   item: &JenkinsQueueItem,
 ) -> Result<Either<u64, (String, u64)>, error::AppError> {
-  match &item.executable {
-    Some(ex) => Ok(Right((ex.url.clone(), ex.number))),
-    None => {
-      let why = item.why.as_ref().ok_or_else(|| {
-        error::AppError::JenkinsEnqueueDeserialize(format!(
-          "Both executable and why fields missing data: {:?}",
-          item,
-        ))
-      })?;
-      Ok(Left(parse_why(why)?))
-    }
+  if let Some(ex) = &item.executable {
+    Ok(Right((ex.url.clone(), ex.number)))
+  } else {
+    let why = item.why.as_ref().ok_or_else(|| {
+      error::AppError::JenkinsEnqueueDeserialize(format!(
+        "Both executable and why fields missing data: {:?}",
+        item,
+      ))
+    })?;
+    Ok(Left(parse_why(why)?))
   }
 }
 
 fn parse_why(why: &String) -> Result<u64, error::AppError> {
-  lazy_static::lazy_static! {
-    // Broken out to print during an error.
-    static ref QUEUE_DELAY_REGEX_STRING: &'static str =
-      // Examples witnessed:
-      // Expires in 1.234 ms
-      // Expires in 3 sec
-      // Expires in 3.15 sec
-      // Expires in 3 secs
-      r"^In the quiet period\. Expires in (?:(?P<secs1>[0-9]+) secs?)|(?:(?P<secs2>[0-9]+)\.(?P<millis1>[0-9]+) secs?)|(?:(?P<millis2>[0-9]+) ms)$";
-    static ref QUEUE_DELAY_REGEX: regex::Regex = regex::Regex::new(
-      &QUEUE_DELAY_REGEX_STRING,
-    ).unwrap();
-    static ref QUEUE_FINISHED_WAITING_REGEX_STRING: &'static str =
-      r"^Finished waiting$";
-    static ref QUEUE_FINISHED_WAITING_REGEX: regex::Regex = regex::Regex::new(
-      &QUEUE_FINISHED_WAITING_REGEX_STRING,
-    ).unwrap();
-  }
-  let option = QUEUE_DELAY_REGEX
+  // lazy_regex::regex! validates the pattern at compile time and caches a
+  // &'static Regex, so a bad pattern is a compile error rather than a runtime
+  // Regex::new to unwrap.
+  //
+  // Examples witnessed:
+  // Expires in 1.234 ms
+  // Expires in 3 sec
+  // Expires in 3.15 sec
+  // Expires in 3 secs
+  let queue_delay_regex = lazy_regex::regex!(
+    r"^In the quiet period\. Expires in (?:(?P<secs1>[0-9]+) secs?)|(?:(?P<secs2>[0-9]+)\.(?P<millis1>[0-9]+) secs?)|(?:(?P<millis2>[0-9]+) ms)$"
+  );
+  let queue_finished_waiting_regex = lazy_regex::regex!(r"^Finished waiting$");
+  let option = queue_delay_regex
     .captures(why)
     .and_then(|c| {
       Some((
@@ -273,7 +276,7 @@ fn parse_why(why: &String) -> Result<u64, error::AppError> {
       ))
     })
     .or_else(|| {
-      if QUEUE_FINISHED_WAITING_REGEX.is_match(why) {
+      if queue_finished_waiting_regex.is_match(why) {
         // Just wait for a second.  "Finished waiting" is actually a lie; we
         // need to wait a little more before the build URL becomes available.
         Some(("1", "0"))
@@ -295,24 +298,29 @@ fn parse_why(why: &String) -> Result<u64, error::AppError> {
     None => Err(error::AppError::JenkinsEnqueueWait(format!(
       "Queue item's why of '{}' does not match regular expression /{}/.",
       why,
-      QUEUE_DELAY_REGEX_STRING.to_string(),
+      queue_delay_regex.as_str(),
     ))),
   }
 }
 
 // Uses waiting period to poll for the queue item's state.  Returns the build
 // URL and build number once the item leaves the queue.
-pub fn build_queue_item_poll<'a>(
-  client: &'a ClientWithMiddleware,
-  server: &'a ConfigServer,
-  url: String,
-) -> std::pin::Pin<
+// Boxed because the poll future is recursive: it re-enters
+// build_queue_item_poll after sleeping, which a bare `impl Future` cannot
+// express.
+type QueueItemPollFuture<'a> = std::pin::Pin<
   Box<
     dyn std::future::Future<Output = Result<(String, u64), error::AppError>>
       + Send
       + 'a,
   >,
-> {
+>;
+
+pub fn build_queue_item_poll<'a>(
+  client: &'a ClientWithMiddleware,
+  server: &'a ConfigServer,
+  url: String,
+) -> QueueItemPollFuture<'a> {
   async move {
     let item = build_queue_item_get(client, server, url.clone()).await?;
     match parse_item(&item)? {
@@ -436,7 +444,8 @@ pub async fn jenkins_job_builds(
     .text()
     .await
     .map_err(|e| error::AppError::JenkinsJobBuildsRequest(e.into()))?;
-  serde_json::from_str(&text).map_err(error::AppError::JenkinsJobBuildsDeserialize)
+  serde_json::from_str(&text)
+    .map_err(error::AppError::JenkinsJobBuildsDeserialize)
 }
 
 pub async fn build_detail_get(
@@ -445,10 +454,8 @@ pub async fn build_detail_get(
   job: &str,
   build_number: u64,
 ) -> Result<JenkinsBuildDetail, AppError> {
-  let url = format!(
-    "{}/job/{}/{}/api/json",
-    server.host_url, job, build_number,
-  );
+  let url =
+    format!("{}/job/{}/{}/api/json", server.host_url, job, build_number,);
   let response = jenkins_request(client, server, reqwest::Method::GET, url)
     .await
     .map_err(AppError::JenkinsBuildDetailRequest)?;
@@ -465,10 +472,8 @@ pub async fn build_log_fetch(
   job: &str,
   build_number: u64,
 ) -> Result<String, AppError> {
-  let url = format!(
-    "{}/job/{}/{}/consoleText",
-    server.host_url, job, build_number,
-  );
+  let url =
+    format!("{}/job/{}/{}/consoleText", server.host_url, job, build_number,);
   let response = jenkins_request(client, server, reqwest::Method::GET, url)
     .await
     .map_err(AppError::JenkinsBuildLogFetch)?;
@@ -486,10 +491,10 @@ pub fn jenkins_result_to_status(result: Option<&str>) -> BuildStatus {
   }
 }
 
-fn header_parse<'a, K, V>(
+fn header_parse<K, V>(
   header_name: K,
   default: &str,
-  response: &'a reqwest::Response,
+  response: &reqwest::Response,
 ) -> Result<V, error::AppError>
 where
   K: reqwest::header::AsHeaderName,
@@ -498,9 +503,7 @@ where
   response
     .headers()
     .get(header_name)
-    .map(|s| s.to_str().unwrap_or(default))
-    .or(Some(default))
-    .unwrap() // Safe unwrap: or(Some(default)) guarantees Some.
+    .map_or(default, |s| s.to_str().unwrap_or(default))
     .parse::<V>()
     .map_err(|_| error::AppError::JenkinsBuildParseTextSize)
 }
@@ -526,13 +529,11 @@ fn headers_to_string(
     .map(|(k, v)| {
       Ok(format!(
         "{}: {}",
-        k.as_ref()
-          .map_or_else(|| "UnknownHeader", |h| h.as_str())
-          .to_string(),
+        k.as_ref().map_or_else(|| "UnknownHeader", |h| h.as_str()),
         v.to_str()?,
       ))
     })
     .collect::<Result<Vec<String>, reqwest::header::ToStrError>>()
     .map_err(error::AppError::JenkinsHeader)
-    .and_then(|xs| Ok(xs.join("\n")))
+    .map(|xs| xs.join("\n"))
 }

@@ -1,13 +1,9 @@
 use thiserror::Error;
 
-use crate::config::ConfigError;
-
 #[derive(Debug, Error)]
 pub enum AppError {
   #[error("Server '{0}' not found in configuration")]
   CliConfigServerMissing(String),
-  #[error("Configuration error: {0}")]
-  Config(#[from] ConfigError),
   #[error("Jenkins build not found in response headers")]
   JenkinsBuildNotFound,
   #[error("Failed to parse build text size header")]
