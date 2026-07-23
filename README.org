@@ -71,6 +71,23 @@ Simply use =--param foo=bar= or =-P foo=bar= (add more =--params= / =-P= uses
 for additional parameters) to provide parameters to the build.  Otherwise its
 defaults will be assumed for all missing parameters.
 
+When every parameter a run sets is a core Jenkins type, =jj= submits it through
+Jenkins' =buildWithParameters= API and watches the exact build with no race.  A
+run that sets a parameter of a plugin-provided type =jj= does not recognise
+instead goes through the build form, which carries any value but leaves a small
+race if the /same/ job is triggered concurrently while =jj= is starting it.  If
+a plugin's parameter works with =buildWithParameters= on your Jenkins and you
+want its runs kept on the race-free path, list that parameter's class name under
+the server with =build_with_parameters_additional_types=:
+
+#+begin_example toml
+[foo]
+host_url = "http://jenkins.foo:8080"
+username = "jeeves"
+token_eval = "pass jenkins-foo-api-token"
+build_with_parameters_additional_types = ["org.example.MyParameterDefinition"]
+#+end_example
+
 ** jobs with approval gates
 
 Coming soon!

@@ -4,12 +4,10 @@ use thiserror::Error;
 pub enum AppError {
   #[error("Server '{0}' not found in configuration")]
   CliConfigServerMissing(String),
-  #[error("Jenkins build not found in response headers")]
-  JenkinsBuildNotFound,
   #[error("Failed to parse build text size header")]
   JenkinsBuildParseTextSize,
   #[error("Failed to serialize build parameters: {0}")]
-  JenkinsBuildParamSerialize(serde_url_params::Error),
+  JenkinsBuildParamSerialize(serde_json::Error),
   #[error("Failed to stream build log: {0}")]
   JenkinsBuildStream(reqwest_middleware::Error),
   #[error("Failed to read build response body: {0}")]
@@ -18,14 +16,22 @@ pub enum AppError {
   JenkinsBuildOutput(std::io::Error),
   #[error("Failed to deserialize Jenkins response: {0}")]
   JenkinsDeserialize(serde_json::Error),
+  #[error("Failed to request the job's parameter definitions: {0}")]
+  JenkinsParameterDefinitions(reqwest_middleware::Error),
   #[error("Failed to enqueue Jenkins build: {0}")]
   JenkinsEnqueue(reqwest_middleware::Error),
-  #[error("Failed to deserialize Jenkins queue response: {0}")]
-  JenkinsEnqueueDeserialize(String),
-  #[error("Failed to parse queue wait duration: {0}")]
-  JenkinsEnqueueSecondsParse(std::num::ParseIntError),
-  #[error("Unrecognized queue wait reason: {0}")]
-  JenkinsEnqueueWait(String),
+  #[error("Jenkins rejected the build enqueue with status {0}")]
+  JenkinsEnqueueRejected(reqwest::StatusCode),
+  #[error("Jenkins returned no queue-item Location for the enqueued build")]
+  JenkinsBuildNotFound,
+  #[error("Failed to poll the queue item for the started build: {0}")]
+  JenkinsQueueItemAwait(reqwest_middleware::Error),
+  #[error("Failed to request the job's next build number: {0}")]
+  JenkinsNextBuildNumber(reqwest_middleware::Error),
+  #[error("Failed to poll for the enqueued build to start: {0}")]
+  JenkinsBuildAwait(reqwest_middleware::Error),
+  #[error("Unexpected status {0} while waiting for the build to start")]
+  JenkinsBuildAwaitStatus(reqwest::StatusCode),
   #[error("Failed to parse response header value: {0}")]
   JenkinsHeader(reqwest::header::ToStrError),
   #[error("Failed to request Jenkins job builds: {0}")]

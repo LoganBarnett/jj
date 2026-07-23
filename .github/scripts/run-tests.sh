@@ -80,7 +80,7 @@ echo "API token generated for ci-token"
 # finish before the real tests run.  The API token bypasses CSRF, so these POSTs
 # need no crumb.
 echo "Hydrating jobs so their parameters register..."
-HYDRATE_JOBS="sleep-job fail-job unstable-job build-with-parameters-test"
+HYDRATE_JOBS="sleep-job fail-job unstable-job build-with-parameters-test no-parameters-test extended-choice-test"
 for job in $HYDRATE_JOBS; do
   curl --silent --fail --request POST --user "admin:$API_TOKEN" \
     "http://localhost:11990/job/$job/build" >/dev/null || true

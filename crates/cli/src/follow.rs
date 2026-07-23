@@ -3,10 +3,12 @@ use std::time::Duration;
 
 use hash_color_lib::{ColorizerOptions, HashColorizer};
 use jj_lib::build::BuildExitCode;
+use reqwest_middleware::ClientWithMiddleware;
 use tokio::{signal, task::JoinSet, time};
 use tracing::{error, info};
 
 use crate::cli::CliJobFollowValid;
+use crate::config::ConfigServer;
 use crate::error::AppError;
 use crate::jenkins;
 
@@ -14,6 +16,36 @@ const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 fn build_colorizer() -> HashColorizer {
   HashColorizer::new(ColorizerOptions::default())
+}
+
+// Spawns a task that streams one build's log to completion, logging its start,
+// completion, or failure.  The build_log_stream await runs inside the spawned
+// task, so `follow`'s loop fans these out concurrently rather than sequencing
+// them.
+fn spawn_build_stream(
+  tasks: &mut JoinSet<()>,
+  client: ClientWithMiddleware,
+  server: ConfigServer,
+  build_number: u64,
+  build_url: String,
+) {
+  tasks.spawn(async move {
+    let colorizer = build_colorizer();
+    info!(build_number, "Streaming build log");
+    match jenkins::build_log_stream(
+      &client,
+      &server,
+      build_url,
+      0,
+      build_number,
+      &colorizer,
+    )
+    .await
+    {
+      Ok(()) => info!(build_number, "Build stream complete"),
+      Err(e) => error!(build_number, error = %e, "Build stream error"),
+    }
+  });
 }
 
 // Adopts the highest-numbered currently-running build, or waits for the next
@@ -43,6 +75,7 @@ pub async fn follow_once(
     info
   } else {
     loop {
+      // await-in-loop: poll for the next build to start; sequential by nature.
       time::sleep(POLL_INTERVAL).await;
       let new_builds = jenkins::jenkins_job_builds(
         &config.client,
@@ -92,6 +125,9 @@ pub async fn follow(config: &CliJobFollowValid) -> Result<(), AppError> {
   let mut interval = time::interval(POLL_INTERVAL);
 
   loop {
+    // await-in-loop: an event loop — select! multiplexes Ctrl-C, the poll tick,
+    // and task completion.  The streaming awaits run in the tasks spawned below,
+    // not here.
     tokio::select! {
       _ = signal::ctrl_c() => break,
       _ = interval.tick() => {
@@ -104,29 +140,13 @@ pub async fn follow(config: &CliJobFollowValid) -> Result<(), AppError> {
             for build in builds.builds {
               if build.building && !seen.contains(&build.number) {
                 seen.insert(build.number);
-                let client_clone = config.client.clone();
-                let server_clone = config.server.clone();
-                let build_number = build.number;
-                let build_url = build.url.clone();
-                tasks.spawn(async move {
-                  let col = build_colorizer();
-                  info!(build_number, "Streaming build log");
-                  match jenkins::build_log_stream(
-                    &client_clone,
-                    &server_clone,
-                    build_url,
-                    0,
-                    build_number,
-                    &col,
-                  )
-                  .await
-                  {
-                    Ok(()) => info!(build_number, "Build stream complete"),
-                    Err(e) => {
-                      error!(build_number, error = %e, "Build stream error")
-                    }
-                  }
-                });
+                spawn_build_stream(
+                  &mut tasks,
+                  config.client.clone(),
+                  config.server.clone(),
+                  build.number,
+                  build.url,
+                );
               }
             }
           }
