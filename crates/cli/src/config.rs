@@ -67,6 +67,8 @@ impl Config {
               host_url: server.host_url,
               token: token_eval(&server.token_eval)?,
               username,
+              build_with_parameters_additional_types: server
+                .build_with_parameters_additional_types,
             },
           ))
         })
@@ -92,6 +94,10 @@ pub struct ConfigServer {
   pub host_url: String,
   pub username: String,
   pub token: String,
+  /// Extra Jenkins parameter `_class` names this server may submit through
+  /// `buildWithParameters`; see
+  /// [`ConfigServerFileRaw::build_with_parameters_additional_types`].
+  pub build_with_parameters_additional_types: Vec<String>,
 }
 
 /// Config-file shape for jj's server registry: `default_server` alongside a
@@ -111,6 +117,14 @@ pub struct ConfigServerFileRaw {
   // token, wrap it in single quotes: "'my-token'".
   pub token_eval: String,
   pub username: Option<String>,
+  /// Jenkins parameter `_class` names — in addition to jj's built-in core
+  /// types — that jj may submit through `buildWithParameters`, its race-free
+  /// queue path.  A run that sets a parameter of any other type falls back to
+  /// the `/build` form (which carries every type but cannot hand back a queue
+  /// handle).  List a plugin's parameter type here once you have confirmed
+  /// buildWithParameters carries its value on your Jenkins.
+  #[serde(default)]
+  pub build_with_parameters_additional_types: Vec<String>,
 }
 
 /// jj-specific configuration failures, surfaced through the derive's

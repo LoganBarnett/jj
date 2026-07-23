@@ -20,6 +20,13 @@ import json
 WANTED = [
     "configuration-as-code",
     "workflow-aggregator",
+    # Deprecated (carries stored-XSS CVEs that only affect the Jenkins web UI,
+    # which the ephemeral localhost CI instance never exposes).  Kept solely for
+    # integration coverage: it is the one plugin that declares in a declarative
+    # Pipeline and produces a composite multi-select value, which the suite uses
+    # to exercise jj's /build json enqueue path (buildWithParameters drops such
+    # values — JENKINS-57125).  See jenkins/jobs/extended-choice-test.groovy.
+    "extended-choice-parameter",
 ]
 
 UPDATE_CENTER = "https://updates.jenkins.io/stable/update-center.actual.json"

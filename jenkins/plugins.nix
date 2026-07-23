@@ -1,5 +1,5 @@
-# Jenkins plugin definitions — configuration-as-code, workflow-aggregator
-# and all of their required transitive dependencies.
+# Jenkins plugin definitions — configuration-as-code, workflow-aggregator,
+# extended-choice-parameter and all of their required transitive dependencies.
 #
 # To regenerate this file (e.g. after adding a plugin or updating versions):
 #
@@ -522,6 +522,15 @@
     src = fetchurl {
       url = "https://updates.jenkins.io/download/plugins/workflow-aggregator/608.v67378e9d3db_1/workflow-aggregator.hpi";
       hash = "sha256-e5QifBr6AbsmLBSRmtSjM0EvG1HZR8DyGQnsLa/zV9w=";
+    };
+    phases = ["installPhase"];
+    installPhase = "cp $src $out";
+  };
+  "extended-choice-parameter" = stdenv.mkDerivation {
+    name = "extended-choice-parameter";
+    src = fetchurl {
+      url = "https://updates.jenkins.io/download/plugins/extended-choice-parameter/388.ve7b_d0b_920e10/extended-choice-parameter.hpi";
+      hash = "sha256-KaAsq+uQwcbXlztg28ZBzysQoxmgVyWRZcioLIZP5Cg=";
     };
     phases = ["installPhase"];
     installPhase = "cp $src $out";

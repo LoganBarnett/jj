@@ -13,7 +13,6 @@ mod view;
 
 use cli::{BuildCommand, CliCommand, JobCommand};
 use config::Config;
-use futures::TryFutureExt;
 use hash_color_lib::{ColorizerOptions, HashColorizer};
 use rust_template_foundation::main as foundation_main;
 use std::process::ExitCode;
@@ -27,25 +26,17 @@ pub async fn main(config: Config) -> Result<ExitCode, error::AppError> {
       JobCommand::Run(args) => {
         let v = cli::cli_job_run_validate(&config, args)?;
         let colorizer = HashColorizer::new(ColorizerOptions::default());
-        // https://support.cloudbees.com/hc/en-us/articles/360028147532-Get-Build-Number-with-REST-API
-        // The above documentation states that the queue item should be around
-        // for 5 minutes.  We can use that to query to see which build it has
-        // produced, and then use that to poll/watch the build log.
-        jenkins::build_enqueue(&v.client, &v.server, &v.job, &v.params)
-          .and_then(|url| {
-            jenkins::build_queue_item_poll(&v.client, &v.server, url)
-          })
-          .and_then(|(build_url, build_number)| {
-            jenkins::build_log_stream(
-              &v.client,
-              &v.server,
-              build_url,
-              0,
-              build_number,
-              &colorizer,
-            )
-          })
-          .await?;
+        let (build_url, build_number) =
+          jenkins::build_start(&v.client, &v.server, &v.job, &v.params).await?;
+        jenkins::build_log_stream(
+          &v.client,
+          &v.server,
+          build_url,
+          0,
+          build_number,
+          &colorizer,
+        )
+        .await?;
         info!("Done!");
         Ok(ExitCode::SUCCESS)
       }

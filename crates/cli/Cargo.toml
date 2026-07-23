@@ -28,13 +28,13 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
-# Compile-time-validated queue-message regexes; see the workspace comment.
+# Compile-time-validated regex for parsing Jenkins' quiet-period `why` messages.
 lazy-regex = { workspace = true }
+# Either models the queue poll's "wait this long" vs "here is the build" split.
 either = { workspace = true }
 futures = { workspace = true }
 bytes = { workspace = true }
 url = { workspace = true }
-serde_url_params = { workspace = true }
 # Enables method chaining and reduces superfluous local variables that only
 # exist to name intermediate results.  Prefer .tap() over temporary variables
 # when it improves readability.

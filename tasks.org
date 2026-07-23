@@ -4,3 +4,115 @@
 The project's backlog.  Record plans and work items here as ~* TODO~ entries —
 see the "Capturing plans" guidance in =llms.org= — cross-linking related entries
 and marking finished work ~* DONE~.
+
+* DONE Enqueue jobs regardless of whether they declare build parameters
+
+~build_enqueue~ always POSTed to a job's ~/buildWithParameters~ endpoint, which
+Jenkins rejects with =400 Bad Request= for a job that declares no parameters —
+so jj could not run a non-parameterized job at all — and which silently drops
+the values of richer parameter types such as an =ExtendedChoiceParameter=
+(JENKINS-57125, still present in the current plugin and confirmed live).
+
+Resolved: jj now chooses the enqueue endpoint per run.  A parameterless job goes
+to ~/build~ and a parameterized one to ~/buildWithParameters~ — the documented
+API, which returns a queue-item =Location= jj polls to get the exact started
+build (race-free).  A run falls back to the web UI's ~/build~ ~json~ form only
+when it sets a parameter whose type is not on jj's known-good list; the form
+carries every value but returns the job URL rather than a queue item
+(JENKINS-30317, resolved "Not A Defect"), so there jj records the job's
+~nextBuildNumber~ before enqueuing and watches that build.  That leaves a small
+enqueue race, but only for those runs and only under concurrent triggering of
+the same job.
+
+The routing keys on each parameter definition's ~_class~ against a built-in list
+of core Jenkins parameter types buildWithParameters is known to carry, plus a
+per-server ~build_with_parameters_additional_types~ config list.  It is a
+/known-good/ list by design: an unrecognized plugin type degrades to the form
+(the visible race) rather than to a silently dropped value (JENKINS-57125, the
+failure mode of a known-bad list), and jj is not on the hook to hardcode every
+plugin's parameter type.  The quiet-period regex the old queue poll used is gone
+— the poll now just waits for the queue item to be assigned an executable.
+
+Integration coverage (=crates/cli/tests/integration_test.rs=), all validated
+against a live Jenkins:
+- A non-parameterized run (new =no-parameters-test= job).
+- A parameterized run asserting the passed value takes effect
+  (=build-with-parameters-test=).
+- A composite multi-select run asserting the value survives (new
+  =extended-choice-test= job) — the case ~/buildWithParameters~ would drop.
+
+Plugin note: the composite test uses =extended-choice-parameter=, which is
+deprecated with stored-XSS CVEs.  No maintained equivalent fits this harness —
+=extensible-choice-parameter= has no Pipeline support and Active Choices is
+UI-oriented and does not reproduce the headless value-drop.  The CVEs need a
+Jenkins web-UI victim, which the ephemeral localhost CI instance never exposes,
+so it is pinned for test coverage only; real jobs should migrate to a maintained
+parameter type.  All three jobs are hydrated by =.github/scripts/run-tests.sh=
+before the suite runs.
+
+* TODO Warn when a parameterized job's first build drops its values
+
+A Pipeline job declares its parameters inside the ~parameters {}~ block, which
+Jenkins only registers as the job's parameter /definitions/ after the job has
+built once.  Until then, values passed to a build are silently dropped.  Now
+that jj enqueues through ~/build~ this no longer surfaces as a 400 — the build
+just runs with the passed values ignored, which is arguably worse because it
+looks like it worked.  The integration runner hydrates every job with one
+throwaway build to sidestep this, but a real jj user hits the same first-build
+behaviour with no hint as to the cause.  Consider detecting a job whose
+parameter definitions are not yet registered and warning before the run.
+
+The integration harness these build on lives in
+=.github/workflows/integration.yml=, =.github/scripts/run-tests.sh=, =jenkins/=
+(job Groovy, JCasC, plugin pins), and the =jenkins= override in =flake.nix=.
+
+* TODO Split jenkins.rs into a jenkins/ module directory
+
+=crates/cli/src/jenkins.rs= has grown large and spaghetti-like: it mixes
+enqueuing, queue/build polling, log streaming, and general REST queries in one
+file.  Break it into a =jenkins/= directory of focused modules, each covering
+one area of functionality:
+
+- An /enqueue/ module: "I want to start a job" — given a job and parameters, it
+  picks the endpoint, submits, and hands back the started build.
+- A /log/ (console) module: polling for and printing a build's log to
+  completion.
+- A /rest/ module: the plain queries — listing a job's builds, build detail,
+  fetching a console log, and similar read-only calls.
+
+Shared plumbing (the authenticated request helper, the buffered-response type,
+header parsing) can live in the module root or a small shared module.  Move code
+without changing behaviour; the integration suite should pass unchanged.
+
+* TODO Nail down config precedence: env -> config (global -> server) -> cli
+
+jj should resolve every layered setting along one axis, with the right-most
+winning: an env var is the base, the config file overrides it (and within the
+file a per-server value overrides a global one), and a CLI flag overrides all of
+it — so =cli > server > global > env=.  The env -> config -> cli half is handled
+by the foundation's =MergeConfig=; the global -> server half (jj's own server
+registry) is not wired yet, so today only per-server values exist.
+
+Capture this axis as the /spec/ in a design doc (e.g. =docs/config.org=), and
+state that any resolution order other than the above is a bug.  Then make the
+registry actually enforce global -> server so the doc is true.  The two entries
+below build on this.
+
+* TODO Make build_with_parameters_additional_types global as well as per-server
+
+Today the list of extra buildWithParameters-safe parameter classes lives only on
+each server.  Add a global (top-level) list too, and take the /union/ of the
+global and per-server lists as the effective set — it is an additive allowlist,
+so a server adds to the global list rather than replacing it (the one place
+"server wins" reads as "server extends").  Depends on the precedence entry
+above.
+
+* TODO Add an opt-in timeout for waiting on a queued or starting build
+
+The queue poll and the build-start poll both wait indefinitely by design — a
+build can legitimately sit in the queue for a long time on a busy server, and
+giving up on our own would be a nasty release-night surprise.  Add an /optional/
+timeout, unset by default, that makes those polls give up when it elapses.
+Expose it as a global config value, a per-server override, and a CLI flag,
+resolved by the precedence entry above (=cli > server > global=).  Ctrl+C stays
+the manual escape when no timeout is set.

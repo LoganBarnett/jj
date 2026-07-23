@@ -21,7 +21,19 @@ automatically.
 
 ** Upcoming
 *** Added
+1. Each server entry accepts a ~build_with_parameters_additional_types~ list of
+   Jenkins parameter class names.  jj already runs jobs using the core parameter
+   types through Jenkins' race-free queue API and falls back to the build form
+   for any other type; add a plugin's parameter class here once you have
+   confirmed Jenkins carries its value via ~buildWithParameters~, to keep that
+   plugin's runs on the queue path.  No action is needed unless you use such a
+   plugin.
 *** Fixes
+1. jj can now run every kind of Jenkins job: one that declares no parameters,
+   one run with its defaults, and one given values — including rich parameter
+   types such as an extended-choice parameter whose value the previous approach
+   silently dropped.  Previously a parameterless job could not run at all and
+   some parameterized runs lost their values.  No action is needed.
 *** Breaking
 *** Maintenance
 ** v0.4.0

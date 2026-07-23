@@ -90,6 +90,73 @@ impl JenkinsTest {
   }
 }
 
+// --- job run enqueue ---
+
+// A job with no parameters block must enqueue via the plain /build endpoint;
+// buildWithParameters 400s for it, so this run formerly failed outright.
+#[test]
+#[serial]
+fn run_no_parameters_streams_to_completion() {
+  let Some(jt) = JenkinsTest::setup() else {
+    return;
+  };
+
+  jt.cmd()
+    .args(["job", "run", "no-parameters-test"])
+    .timeout(Duration::from_secs(60))
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("no-parameters-test ran"));
+}
+
+// A parameterized run must reach the job through buildWithParameters and take
+// effect: build-with-parameters-test echoes foo, so the passed value appears in
+// the streamed log rather than the default.
+#[test]
+#[serial]
+fn run_with_parameters_applies_value() {
+  let Some(jt) = JenkinsTest::setup() else {
+    return;
+  };
+
+  jt.cmd()
+    .args([
+      "job",
+      "run",
+      "build-with-parameters-test",
+      "-P",
+      "foo=integration-check",
+    ])
+    .timeout(Duration::from_secs(60))
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("foo=integration-check"));
+}
+
+// A composite multi-select (extended-choice) value is submittable only through
+// the /build json payload; buildWithParameters drops it (JENKINS-57125).
+// Passing two of the choices must echo them back through the streamed log.
+#[test]
+#[serial]
+fn run_extended_choice_applies_value() {
+  let Some(jt) = JenkinsTest::setup() else {
+    return;
+  };
+
+  jt.cmd()
+    .args([
+      "job",
+      "run",
+      "extended-choice-test",
+      "-P",
+      "colors=green,blue",
+    ])
+    .timeout(Duration::from_secs(60))
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("colors=green,blue"));
+}
+
 // --- --follow-next ---
 
 // Trigger a long-running build so --follow-next finds it already in-flight,
