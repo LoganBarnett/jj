@@ -23,6 +23,8 @@ automatically.
 *** Added
 *** Fixes
 *** Breaking
+*** Maintenance
+1. Bump DeterminateSystems/magic-nix-cache-action from 2 to 14 (https://github.com/LoganBarnett/jj/pull/5)
 ** v0.2.0
 *** Added
 1. Nothing you must act on: jj now consumes the rust-template foundation library
