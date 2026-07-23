@@ -1006,7 +1006,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1190,8 +1190,8 @@ dependencies = [
 
 [[package]]
 name = "rust-template-foundation"
-version = "0.54.0"
-source = "git+https://github.com/LoganBarnett/rust-template.git#65f9706d19e13c908438b112be318f9bf0f90125"
+version = "0.58.0"
+source = "git+https://github.com/LoganBarnett/rust-template.git#5640fd2ff7357ae77a7e056754ad38ce62d718c4"
 dependencies = [
  "clap",
  "home",
@@ -1205,8 +1205,8 @@ dependencies = [
 
 [[package]]
 name = "rust-template-foundation-derive"
-version = "0.54.0"
-source = "git+https://github.com/LoganBarnett/rust-template.git#65f9706d19e13c908438b112be318f9bf0f90125"
+version = "0.58.0"
+source = "git+https://github.com/LoganBarnett/rust-template.git#5640fd2ff7357ae77a7e056754ad38ce62d718c4"
 dependencies = [
  "proc-macro2",
  "quote",
