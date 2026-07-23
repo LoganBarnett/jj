@@ -23,6 +23,8 @@ automatically.
 *** Added
 *** Fixes
 *** Breaking
+*** Maintenance
+1. Bump actions/checkout from 4 to 7 (https://github.com/LoganBarnett/jj/pull/4)
 ** v0.2.0
 *** Added
 1. Nothing you must act on: jj now consumes the rust-template foundation library
