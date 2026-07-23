@@ -23,6 +23,7 @@ automatically.
 *** Added
 *** Fixes
 *** Breaking
+** v0.3.0
 ** v0.2.0
 *** Added
 1. Nothing you must act on: jj now consumes the rust-template foundation library
