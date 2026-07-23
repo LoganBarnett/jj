@@ -24,6 +24,8 @@ automatically.
 *** Fixes
 *** Breaking
 *** Maintenance
+** v0.4.0
+*** Maintenance
 1. Bump assert_cmd from 2.2.0 to 2.2.2 (https://github.com/LoganBarnett/jj/pull/8)
 ** v0.3.0
 ** v0.2.0
