@@ -19,7 +19,7 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
       - name: Setup Nix cache
-        uses: DeterminateSystems/magic-nix-cache-action@v2
+        uses: DeterminateSystems/magic-nix-cache-action@v14
         # TODO: This needs more work.  This is where our needs deviate from the
         # example.  We need to bump the version, rotate the CHANGELOG.org file,
         # create our release binaries, tag, and push those binaries to GitHub's
