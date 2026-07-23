@@ -35,3 +35,5 @@ automatically.
    ~--log-format~, and ~--config~ flags are unchanged.
 2. CLI logs now go to stderr only; the previous journald routing on Unix is
    gone.  Pipe stderr to the journal at the service layer if you need it.
+*** Maintenance
+1. Bump toml from 0.8.23 to 1.1.3+spec-1.1.0 (https://github.com/LoganBarnett/jj/pull/6)
