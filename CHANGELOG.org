@@ -24,6 +24,8 @@ automatically.
 *** Fixes
 *** Breaking
 *** Maintenance
+** v0.5.0
+*** Maintenance
 1. Bump rust-template-foundation from `65f9706` to `5640fd2` (https://github.com/LoganBarnett/jj/pull/17)
 ** v0.4.0
 *** Maintenance
