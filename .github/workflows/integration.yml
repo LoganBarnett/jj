@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Install Nix and restore/save the /nix store cache via the template's
       # blessed composite action.  It replaces the shut-down Determinate

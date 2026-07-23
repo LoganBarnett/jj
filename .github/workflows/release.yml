@@ -15,7 +15,7 @@ jobs:
     # Shameful theft from:
     # https://github.com/PrismLauncher/refraction/actions/runs/7080047623/workflow
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
       - name: Setup Nix cache
